@@ -1,0 +1,17 @@
+{
+  "name": "agon",
+  "owner": {
+    "name": "Agon contributors"
+  },
+  "metadata": {
+    "description": "Adversarial multi-agent governance for paid social accounts",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "agon",
+      "source": "./plugin",
+      "description": "Five opposed agents debate every contested ad-account move; target-derived gates decide eligibility; an envelope decides what may execute autonomously."
+    }
+  ]
+}

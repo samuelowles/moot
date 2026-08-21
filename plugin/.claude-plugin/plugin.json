@@ -1,0 +1,19 @@
+{
+  "name": "agon",
+  "version": "0.1.0",
+  "description": "Adversarial multi-agent autopilot for paid social accounts. Five agents with opposed mandates argue every contested move, an adjudicator rules, and target-derived gates move ads through a three-stage ladder.",
+  "author": {
+    "name": "Agon contributors"
+  },
+  "homepage": "https://github.com/USERNAME/agon",
+  "repository": "https://github.com/USERNAME/agon",
+  "license": "MIT",
+  "keywords": [
+    "advertising",
+    "meta-ads",
+    "multi-agent",
+    "adversarial",
+    "autopilot",
+    "media-buying"
+  ]
+}
