@@ -1,0 +1,124 @@
+"""Guards — docs/gates.md §10.
+
+Evaluated after the action set is computed, before anything dispatches. The
+anomaly guard is not a cap on the number of moves — there is none. A mass-kill
+signal indicates bad data far more often than bad ads: a broken pull, an
+attribution lag, a partial page. An incomplete pull means no writes this run:
+"every catastrophic autonomous action starts with acting confidently on
+partial data."
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Optional
+
+from agon.config import Config
+from agon.models import Action
+
+
+@dataclass(frozen=True)
+class RunSnapshot:
+    """The run-level facts the guards judge.
+
+    ``pull_complete`` is False on any failed, partial or inconsistently
+    paginated read (§10 breaker 2). ``pipeline_recent_spend`` is the recent
+    spend of the delivering pipeline; ``paused_recent_spend`` is the recent
+    spend of the entities the computed action set would pause.
+    """
+
+    pull_complete: bool = True
+    pull_errors: tuple[str, ...] = ()
+    account_recent_return: Optional[float] = None
+    pipeline_recent_spend: float = 0.0
+    paused_recent_spend: float = 0.0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "pull_complete": self.pull_complete,
+            "pull_errors": list(self.pull_errors),
+            "account_recent_return": self.account_recent_return,
+            "pipeline_recent_spend": self.pipeline_recent_spend,
+            "paused_recent_spend": self.paused_recent_spend,
+        }
+
+
+@dataclass(frozen=True)
+class GuardVerdict:
+    """The guards' ruling on the computed action set."""
+
+    writes_allowed: bool
+    reasons: list[str] = field(default_factory=list)
+    evidence: dict[str, Any] = field(default_factory=dict)
+    urgent: bool = False
+
+
+def evaluate_guards(
+    actions: list[Action], snapshot: RunSnapshot, config: Config
+) -> GuardVerdict:
+    """Run the anomaly guard and the three circuit breakers (§10).
+
+    Any trip means ``writes_allowed=False`` for the whole run — including the
+    actions that look individually sound, because the guard judges the *data
+    the actions were computed from*, not the actions.
+    """
+    reasons: list[str] = []
+    evidence: dict[str, Any] = {"snapshot": snapshot.to_dict()}
+    urgent = False
+
+    # Breaker 1 — account return(recent) < breaker floor (0.35 × T, §2).
+    breaker_floor = config.threshold("breaker_floor")
+    evidence["breaker_floor"] = breaker_floor
+    account_return = snapshot.account_recent_return
+    if account_return is not None and account_return < breaker_floor:
+        reasons.append(
+            f"CIRCUIT BREAKER 1: account recent return {account_return:.2f} < "
+            f"breaker floor {breaker_floor:.2f} (§10)."
+        )
+        urgent = True
+    elif account_return is None:
+        reasons.append(
+            "CIRCUIT BREAKER (data): account recent return unreported — an "
+            "unverifiable account-level read cannot authorize writes (§10)."
+        )
+        urgent = True
+
+    # Breaker 2 — the data pull failed, was partial, or paginated
+    # inconsistently. An incomplete pull means no writes this run.
+    if not snapshot.pull_complete:
+        detail = f" ({'; '.join(snapshot.pull_errors)})" if snapshot.pull_errors else ""
+        reasons.append(
+            f"CIRCUIT BREAKER 2: data pull incomplete{detail}. No writes this "
+            "run; report-only, flag the gap (§10)."
+        )
+        urgent = True
+
+    # Anomaly guard — if this run's pauses would darken more than
+    # anomaly_guard_pct of pipeline spend, execute NOTHING and report URGENT.
+    # Denominator: the delivering pipeline's recent spend (the live footprint
+    # this run acts on). Trip is >, not >=, and only with real spend.
+    guard_pct = config.guards.anomaly_guard_pct
+    share = (
+        snapshot.paused_recent_spend / snapshot.pipeline_recent_spend
+        if snapshot.pipeline_recent_spend > 0
+        else 0.0
+    )
+    evidence["paused_spend_share"] = share
+    evidence["anomaly_guard_pct"] = guard_pct
+    if share > guard_pct / 100.0:
+        reasons.append(
+            f"ANOMALY GUARD: this action set would pause {share:.0%} of "
+            f"pipeline recent spend (> {guard_pct:.0f}%). A mass-kill signal "
+            "indicates bad data more often than bad ads — executing nothing, "
+            "reporting URGENT (§10)."
+        )
+        urgent = True
+
+    if reasons:
+        return GuardVerdict(writes_allowed=False, reasons=reasons, evidence=evidence,
+                            urgent=urgent)
+    return GuardVerdict(writes_allowed=True, reasons=[], evidence=evidence)
+
+
+# Backwards-friendly alias used by the pipeline and CLI.
+evaluate = evaluate_guards

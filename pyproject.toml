@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agon"
+version = "0.1.0"
+description = "Adversarial multi-agent autopilot for Meta Ads accounts."
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "pyyaml",
+    "requests",
+    "click",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "ruff",
+    "mypy",
+]
+
+[project.scripts]
+agon = "agon.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+# Optional[X] is the house style — matches the spec's vocabulary — so the
+# PEP 604 rewrite rules are turned off rather than mixed.
+ignore = ["UP007", "UP035", "UP037", "UP045"]
+
+[tool.mypy]
+python_version = "3.10"
+mypy_path = "src"
+packages = ["agon"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

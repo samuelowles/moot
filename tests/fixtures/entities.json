@@ -1,0 +1,1299 @@
+{
+  "account_id": "act_100000000000001",
+  "pull_complete": true,
+  "campaigns": [
+    {
+      "id": "120000000000001",
+      "name": "NZ - Proving Ground",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "market": "NZ",
+      "stage": "proving",
+      "daily_budget": 50,
+      "insights": {
+        "recent": {
+          "spend": "300.00",
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "800.00"
+            }
+          ]
+        },
+        "trailing": {
+          "spend": "1200.00",
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "3600.00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "120000000000002",
+      "name": "AU - Proving Ground",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "market": "AU",
+      "stage": "proving",
+      "daily_budget": 50,
+      "insights": {
+        "recent": {
+          "spend": "300.00",
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "900.00"
+            }
+          ]
+        },
+        "trailing": {
+          "spend": "1300.00",
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "3900.00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "120000000000003",
+      "name": "US - Proving Ground",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "market": "US",
+      "stage": "proving",
+      "daily_budget": 50,
+      "insights": {
+        "recent": {
+          "spend": "100.00",
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "250.00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "120000000000004",
+      "name": "NZ - Scale",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "market": "NZ",
+      "stage": "scale",
+      "daily_budget": 400,
+      "insights": {
+        "recent": {
+          "spend": "800.00",
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "4000.00"
+            }
+          ]
+        },
+        "trailing": {
+          "spend": "3000.00",
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "15000.00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "120000000000005",
+      "name": "AU - Scale",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "market": "AU",
+      "stage": "scale",
+      "daily_budget": 300,
+      "insights": {
+        "recent": {
+          "spend": "500.00",
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "1250.00"
+            }
+          ]
+        },
+        "trailing": {
+          "spend": "2000.00",
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "7000.00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "120000000000006",
+      "name": "NZ - Reserve",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "market": "NZ",
+      "stage": "reserve",
+      "insights": {
+        "recent": {
+          "spend": "50.00",
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "200.00"
+            }
+          ]
+        },
+        "trailing": {
+          "spend": "400.00",
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "2000.00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "120000000000007",
+      "name": "AU - Reserve",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "market": "AU",
+      "stage": "reserve",
+      "insights": {
+        "trailing": {
+          "spend": "100.00",
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "300.00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "120000000000008",
+      "name": "NZ - Retarget",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "market": "NZ",
+      "stage": "retarget"
+    },
+    {
+      "id": "120000000000009",
+      "name": "AU - Retarget",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "market": "AU",
+      "stage": "retarget"
+    }
+  ],
+  "adsets": [
+    {
+      "id": "as_nz_p1",
+      "name": "NZ concept alpha",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "campaign_id": "120000000000001",
+      "market": "NZ",
+      "stage": "proving",
+      "daily_budget": 20,
+      "insights": {
+        "trailing": {
+          "spend": "1000.00",
+          "actions": [
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "100"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "9000.00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "as_nz_p2",
+      "name": "NZ concept beta",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "campaign_id": "120000000000001",
+      "market": "NZ",
+      "stage": "proving",
+      "daily_budget": 20,
+      "insights": {
+        "trailing": {
+          "spend": "800.00",
+          "actions": [
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "40"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "5600.00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "as_nz_p3",
+      "name": "NZ concept gamma",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "campaign_id": "120000000000001",
+      "market": "NZ",
+      "stage": "proving",
+      "daily_budget": 20,
+      "insights": {
+        "trailing": {
+          "spend": "600.00",
+          "actions": [
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "30"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "3000.00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "as_nz_p4",
+      "name": "NZ concept delta",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "campaign_id": "120000000000001",
+      "market": "NZ",
+      "stage": "proving",
+      "daily_budget": 20,
+      "insights": {
+        "trailing": {
+          "spend": "500.00",
+          "actions": [
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "25"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "1500.00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "as_au_p1",
+      "name": "AU concept alpha",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "campaign_id": "120000000000002",
+      "market": "AU",
+      "stage": "proving",
+      "daily_budget": 20,
+      "insights": {
+        "trailing": {
+          "spend": "1200.00",
+          "actions": [
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "100"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "10800.00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "as_au_p2",
+      "name": "AU concept beta",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "campaign_id": "120000000000002",
+      "market": "AU",
+      "stage": "proving",
+      "daily_budget": 20,
+      "insights": {
+        "trailing": {
+          "spend": "900.00",
+          "actions": [
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "45"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "6300.00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "as_au_p3",
+      "name": "AU concept gamma",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "campaign_id": "120000000000002",
+      "market": "AU",
+      "stage": "proving",
+      "daily_budget": 20,
+      "insights": {
+        "trailing": {
+          "spend": "700.00",
+          "actions": [
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "35"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "3500.00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "as_au_p4",
+      "name": "AU concept delta",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "campaign_id": "120000000000002",
+      "market": "AU",
+      "stage": "proving",
+      "daily_budget": 20,
+      "insights": {
+        "trailing": {
+          "spend": "600.00",
+          "actions": [
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "30"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "1800.00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "as_us_p1",
+      "name": "US concept one",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "campaign_id": "120000000000003",
+      "market": "US",
+      "stage": "proving",
+      "daily_budget": 20,
+      "insights": {
+        "trailing": {
+          "spend": "150.00",
+          "actions": [
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "15"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "900.00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "as_us_p2",
+      "name": "US concept two",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "campaign_id": "120000000000003",
+      "market": "US",
+      "stage": "proving",
+      "daily_budget": 20,
+      "insights": {
+        "trailing": {
+          "spend": "120.00",
+          "actions": [
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "12"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "840.00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "as_nz_retired",
+      "name": "Retired winners",
+      "status": "PAUSED",
+      "effective_status": "PAUSED",
+      "campaign_id": "120000000000006",
+      "market": "NZ",
+      "stage": "reserve",
+      "insights": {
+        "trailing": {
+          "spend": "400.00",
+          "actions": [
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "20"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "2000.00"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "as_au_retired",
+      "name": "Retired winners",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "campaign_id": "120000000000007",
+      "market": "AU",
+      "stage": "reserve",
+      "insights": {
+        "trailing": {
+          "spend": "100.00",
+          "actions": [
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "10"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "300.00"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "ads": [
+    {
+      "id": "ad_kill_a",
+      "name": "NZ-20260810-IMG-never-worked",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "adset_id": "as_nz_p1",
+      "campaign_id": "120000000000001",
+      "market": "NZ",
+      "stage": "proving",
+      "creative_type": "STATIC",
+      "post_id": "p_a",
+      "url_tags": "utm_source=meta&utm_campaign=proving",
+      "age_days": 10,
+      "insights": {
+        "recent": {
+          "spend": "30.00",
+          "impressions": "3000",
+          "clicks": "60",
+          "outbound_clicks": "50",
+          "outbound_clicks_ctr": "0.0167",
+          "cpm": "10.00"
+        },
+        "trailing": {
+          "spend": "50.00",
+          "impressions": "5000",
+          "clicks": "90"
+        },
+        "lifetime": {
+          "spend": "50.00"
+        }
+      }
+    },
+    {
+      "id": "ad_kill_b",
+      "name": "NZ-20260810-IMG-expensive",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "adset_id": "as_nz_p2",
+      "campaign_id": "120000000000001",
+      "market": "NZ",
+      "stage": "proving",
+      "creative_type": "STATIC",
+      "post_id": "p_b",
+      "url_tags": "utm_source=meta",
+      "age_days": 10,
+      "insights": {
+        "recent": {
+          "spend": "40.00",
+          "impressions": "4000"
+        },
+        "trailing": {
+          "spend": "90.00",
+          "impressions": "9000",
+          "actions": [
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "3"
+            }
+          ]
+        },
+        "lifetime": {
+          "spend": "90.00",
+          "actions": [
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "3"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ad_kill_c1",
+      "name": "NZ-20260810-VID-stalled",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "adset_id": "as_nz_p1",
+      "campaign_id": "120000000000001",
+      "market": "NZ",
+      "stage": "proving",
+      "creative_type": "VIDEO",
+      "post_id": "p_c1",
+      "age_days": 10,
+      "insights": {
+        "recent": {
+          "spend": "200.00",
+          "impressions": "20000",
+          "actions": [
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "4"
+            }
+          ]
+        },
+        "trailing": {
+          "spend": "300.00",
+          "purchases_legacy": "1",
+          "actions": [
+            {
+              "action_type": "omni_purchase",
+              "value": "1"
+            },
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "6"
+            }
+          ]
+        },
+        "lifetime": {
+          "spend": "300.00"
+        }
+      }
+    },
+    {
+      "id": "ad_kill_c2",
+      "name": "NZ-20260810-VID-uneconomic",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "adset_id": "as_nz_p2",
+      "campaign_id": "120000000000001",
+      "market": "NZ",
+      "stage": "proving",
+      "creative_type": "VIDEO",
+      "post_id": "p_c2",
+      "age_days": 10,
+      "insights": {
+        "recent": {
+          "spend": "200.00",
+          "cpm": "9.00",
+          "actions": [
+            {
+              "action_type": "omni_purchase",
+              "value": "2"
+            },
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "2"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "150.00"
+            }
+          ]
+        },
+        "trailing": {
+          "spend": "400.00",
+          "cpm": "12.00",
+          "actions": [
+            {
+              "action_type": "omni_purchase",
+              "value": "3"
+            },
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "8"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "300.00"
+            }
+          ]
+        },
+        "lifetime": {
+          "spend": "600.00",
+          "actions": [
+            {
+              "action_type": "omni_purchase",
+              "value": "3"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ad_starved",
+      "name": "NZ-20260815-IMG-starved",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "adset_id": "as_nz_p3",
+      "campaign_id": "120000000000001",
+      "market": "NZ",
+      "stage": "proving",
+      "creative_type": "STATIC",
+      "post_id": "p_st",
+      "age_days": 6,
+      "insights": {
+        "recent": {
+          "spend": "1.00"
+        },
+        "trailing": {
+          "spend": "2.00"
+        },
+        "lifetime": {
+          "spend": "2.00"
+        }
+      }
+    },
+    {
+      "id": "ad_graduate_a",
+      "name": "NZ-20260809-VID-winner",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "adset_id": "as_nz_p1",
+      "campaign_id": "120000000000001",
+      "market": "NZ",
+      "stage": "proving",
+      "creative_type": "VIDEO",
+      "post_id": "p_g1",
+      "url_tags": "utm_source=meta&utm_campaign=proving",
+      "destination_url": "https://shop.example.com/products/alpha",
+      "age_days": 12,
+      "insights": {
+        "recent": {
+          "spend": "250.00",
+          "impressions": "15000",
+          "outbound_clicks": "200",
+          "outbound_clicks_ctr": "0.013",
+          "cpm": "10.00",
+          "video_3s_views": "3750",
+          "actions": [
+            {
+              "action_type": "omni_purchase",
+              "value": "3"
+            },
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "30"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "1500.00"
+            }
+          ]
+        },
+        "trailing": {
+          "spend": "300.00",
+          "impressions": "20000",
+          "outbound_clicks": "250",
+          "outbound_clicks_ctr": "0.014",
+          "cpm": "10.00",
+          "video_3s_views": "5000",
+          "video_thruplay_watched_actions": "1500",
+          "actions": [
+            {
+              "action_type": "omni_purchase",
+              "value": "5"
+            },
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "38"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "4500.00"
+            }
+          ]
+        },
+        "lifetime": {
+          "spend": "600.00",
+          "actions": [
+            {
+              "action_type": "omni_purchase",
+              "value": "8"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ad_static_graduate",
+      "name": "NZ-20260807-IMG-winner",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "adset_id": "as_nz_p3",
+      "campaign_id": "120000000000001",
+      "market": "NZ",
+      "stage": "proving",
+      "creative_type": "STATIC",
+      "post_id": "p_g2",
+      "url_tags": "utm_source=meta",
+      "destination_url": "https://shop.example.com/products/beta",
+      "age_days": 14,
+      "insights": {
+        "recent": {
+          "spend": "250.00",
+          "outbound_clicks": "180",
+          "outbound_clicks_ctr": "0.012",
+          "actions": [
+            {
+              "action_type": "omni_purchase",
+              "value": "3"
+            },
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "28"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "1400.00"
+            }
+          ]
+        },
+        "trailing": {
+          "spend": "280.00",
+          "outbound_clicks": "200",
+          "outbound_clicks_ctr": "0.015",
+          "actions": [
+            {
+              "action_type": "omni_purchase",
+              "value": "4"
+            },
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "35"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "5000.00"
+            }
+          ]
+        },
+        "lifetime": {
+          "spend": "500.00",
+          "actions": [
+            {
+              "action_type": "omni_purchase",
+              "value": "7"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ad_fatigue",
+      "name": "NZ-20260725-VID-faded",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "adset_id": "as_nz_p2",
+      "campaign_id": "120000000000001",
+      "market": "NZ",
+      "stage": "proving",
+      "creative_type": "VIDEO",
+      "post_id": "p_f",
+      "url_tags": "utm_source=meta&utm_campaign=proving",
+      "age_days": 20,
+      "insights": {
+        "recent": {
+          "spend": "200.00",
+          "impressions": "12000",
+          "outbound_clicks": "174",
+          "outbound_clicks_ctr": "0.0145",
+          "cpm": "8.00",
+          "video_3s_views": "3120",
+          "actions": [
+            {
+              "action_type": "omni_purchase",
+              "value": "2"
+            },
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "7"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "300.00"
+            }
+          ]
+        },
+        "trailing": {
+          "spend": "700.00",
+          "impressions": "40000",
+          "outbound_clicks": "600",
+          "outbound_clicks_ctr": "0.015",
+          "cpm": "12.00",
+          "video_3s_views": "10400",
+          "video_thruplay_watched_actions": "2600",
+          "actions": [
+            {
+              "action_type": "omni_purchase",
+              "value": "8"
+            },
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "70"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "5600.00"
+            }
+          ]
+        },
+        "lifetime": {
+          "spend": "900.00",
+          "actions": [
+            {
+              "action_type": "omni_purchase",
+              "value": "10"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ad_auction",
+      "name": "NZ-20260806-VID-repriced",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "adset_id": "as_nz_p4",
+      "campaign_id": "120000000000001",
+      "market": "NZ",
+      "stage": "proving",
+      "creative_type": "VIDEO",
+      "post_id": "p_auc",
+      "age_days": 15,
+      "insights": {
+        "recent": {
+          "spend": "200.00",
+          "impressions": "10000",
+          "outbound_clicks": "145",
+          "outbound_clicks_ctr": "0.0145",
+          "cpm": "20.00",
+          "video_3s_views": "2500",
+          "actions": [
+            {
+              "action_type": "omni_purchase",
+              "value": "2"
+            },
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "7"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "700.00"
+            }
+          ]
+        },
+        "trailing": {
+          "spend": "600.00",
+          "impressions": "30000",
+          "outbound_clicks": "450",
+          "outbound_clicks_ctr": "0.015",
+          "cpm": "12.00",
+          "video_3s_views": "7800",
+          "video_thruplay_watched_actions": "2000",
+          "actions": [
+            {
+              "action_type": "omni_purchase",
+              "value": "2"
+            },
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "60"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "3600.00"
+            }
+          ]
+        },
+        "lifetime": {
+          "spend": "800.00",
+          "actions": [
+            {
+              "action_type": "omni_purchase",
+              "value": "5"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ad_watch",
+      "name": "NZ-20260806-IMG-badweek",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "adset_id": "as_nz_p3",
+      "campaign_id": "120000000000001",
+      "market": "NZ",
+      "stage": "proving",
+      "creative_type": "STATIC",
+      "post_id": "p_w",
+      "age_days": 15,
+      "insights": {
+        "recent": {
+          "spend": "300.00",
+          "actions": [
+            {
+              "action_type": "omni_purchase",
+              "value": "2"
+            },
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "25"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "900.00"
+            }
+          ]
+        },
+        "trailing": {
+          "spend": "300.00",
+          "actions": [
+            {
+              "action_type": "omni_purchase",
+              "value": "3"
+            },
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "30"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "960.00"
+            }
+          ]
+        },
+        "lifetime": {
+          "spend": "600.00",
+          "actions": [
+            {
+              "action_type": "omni_purchase",
+              "value": "5"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ad_demote",
+      "name": "NZ-20260801-VID-scaled-out",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "adset_id": "as_nz_retired",
+      "campaign_id": "120000000000004",
+      "market": "NZ",
+      "stage": "scale",
+      "creative_type": "VIDEO",
+      "post_id": "p_dm",
+      "age_days": 20,
+      "insights": {
+        "recent": {
+          "spend": "200.00",
+          "cpm": "10.00",
+          "actions": [
+            {
+              "action_type": "omni_purchase",
+              "value": "3"
+            },
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "20"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "640.00"
+            }
+          ]
+        },
+        "trailing": {
+          "spend": "800.00",
+          "cpm": "10.00",
+          "outbound_clicks": "500",
+          "outbound_clicks_ctr": "0.015",
+          "actions": [
+            {
+              "action_type": "omni_purchase",
+              "value": "9"
+            },
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "80"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "3200.00"
+            }
+          ]
+        },
+        "lifetime": {
+          "spend": "1200.00",
+          "actions": [
+            {
+              "action_type": "omni_purchase",
+              "value": "9"
+            }
+          ]
+        }
+      },
+      "url_tags": "utm_source=meta&utm_campaign=scale"
+    },
+    {
+      "id": "ad_us_graduate",
+      "name": "US-20260809-IMG-newmarket",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "adset_id": "as_us_p1",
+      "campaign_id": "120000000000003",
+      "market": "US",
+      "stage": "proving",
+      "creative_type": "STATIC",
+      "post_id": "p_us1",
+      "age_days": 12,
+      "insights": {
+        "recent": {
+          "spend": "200.00",
+          "actions": [
+            {
+              "action_type": "omni_purchase",
+              "value": "2"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "1200.00"
+            }
+          ]
+        },
+        "trailing": {
+          "spend": "300.00",
+          "outbound_clicks": "250",
+          "outbound_clicks_ctr": "0.014",
+          "actions": [
+            {
+              "action_type": "omni_purchase",
+              "value": "4"
+            },
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "33"
+            }
+          ],
+          "action_values": [
+            {
+              "action_type": "omni_purchase_value",
+              "value": "4800.00"
+            }
+          ]
+        },
+        "lifetime": {
+          "spend": "400.00",
+          "actions": [
+            {
+              "action_type": "omni_purchase",
+              "value": "6"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ad_dead_1",
+      "name": "US-20260809-IMG-deadclick-a",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "adset_id": "as_us_p1",
+      "campaign_id": "120000000000003",
+      "market": "US",
+      "stage": "proving",
+      "creative_type": "STATIC",
+      "post_id": "p_dead",
+      "age_days": 12,
+      "insights": {
+        "recent": {
+          "spend": "30.00",
+          "outbound_clicks": "60",
+          "outbound_clicks_ctr": "0.02"
+        },
+        "trailing": {
+          "spend": "80.00",
+          "actions": [
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "10"
+            }
+          ]
+        },
+        "lifetime": {
+          "spend": "80.00"
+        }
+      }
+    },
+    {
+      "id": "ad_dead_2",
+      "name": "US-20260809-IMG-deadclick-b",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "adset_id": "as_us_p2",
+      "campaign_id": "120000000000003",
+      "market": "US",
+      "stage": "proving",
+      "creative_type": "STATIC",
+      "post_id": "p_dead",
+      "age_days": 12,
+      "insights": {
+        "recent": {
+          "spend": "30.00",
+          "outbound_clicks": "60",
+          "outbound_clicks_ctr": "0.02"
+        },
+        "trailing": {
+          "spend": "80.00",
+          "actions": [
+            {
+              "action_type": "omni_add_to_cart",
+              "value": "10"
+            }
+          ]
+        },
+        "lifetime": {
+          "spend": "80.00"
+        }
+      }
+    },
+    {
+      "id": "ad_dark",
+      "name": "NZ-20260801-IMG-paused",
+      "status": "PAUSED",
+      "effective_status": "PAUSED",
+      "adset_id": "as_nz_p4",
+      "campaign_id": "120000000000001",
+      "market": "NZ",
+      "stage": "proving",
+      "creative_type": "STATIC",
+      "post_id": "p_dk",
+      "age_days": 20,
+      "insights": {
+        "recent": {
+          "spend": "0.00"
+        },
+        "trailing": {
+          "spend": "500.00"
+        },
+        "lifetime": {
+          "spend": "500.00"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  "account_id": "act_100000000000001",
+  "pull_complete": true,
+  "campaigns": [
+    {
+      "id": "120000000000001",
+      "name": "source campaign",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "market": "NZ",
+      "stage": "proving"
+    },
+    {
+      "id": "120000000000004",
+      "name": "dest campaign",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "market": "NZ",
+      "stage": "scale"
+    }
+  ],
+  "adsets": [
+    {
+      "id": "as_src",
+      "name": "source set",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "campaign_id": "120000000000001",
+      "market": "NZ",
+      "stage": "proving"
+    },
+    {
+      "id": "as_dest",
+      "name": "2026-08 winners",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "campaign_id": "120000000000004",
+      "market": "NZ",
+      "stage": "scale"
+    }
+  ],
+  "ads": [
+    {
+      "id": "ad_src",
+      "name": "NZ-20260810-VID-source",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "adset_id": "as_src",
+      "campaign_id": "120000000000001",
+      "market": "NZ",
+      "stage": "proving",
+      "creative_type": "VIDEO",
+      "post_id": "p_dup",
+      "url_tags": "utm_source=meta&utm_campaign=proving",
+      "age_days": 12,
+      "insights": {
+        "trailing": {
+          "spend": "300.00"
+        }
+      }
+    },
+    {
+      "id": "ad_existing_paused",
+      "name": "existing copy - DIFFERENT NAME ENTIRELY",
+      "status": "PAUSED",
+      "effective_status": "PAUSED",
+      "adset_id": "as_dest",
+      "campaign_id": "120000000000004",
+      "market": "NZ",
+      "stage": "scale",
+      "creative_type": "VIDEO",
+      "post_id": "p_dup",
+      "age_days": 30,
+      "insights": {
+        "trailing": {
+          "spend": "100.00"
+        }
+      }
+    }
+  ]
+}
