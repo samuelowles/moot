@@ -56,62 +56,78 @@ class Archetype:
 
 AGENT_ROSTER: tuple[Archetype, ...] = (
     Archetype(
-        id="efficiency",
-        title="The Efficiency",
-        mandate="Cost per cart is the truth; waste dies young.",
-        primary_metrics=("cost_per_cart", "return", "baseline"),
-        always_argues_for=("ad.pause", "campaign.budget_decrease",
-                           "ad.pause@KILL", "adset.pause"),
-        always_argues_against=("campaign.budget_increase", "budget.bid_review"),
-        blind_spot="Optimises the portfolio into a monoculture of safe winners; "
-        "starves the testing engine that feeds it.",
-    ),
-    Archetype(
-        id="creative",
-        title="The Creative",
-        mandate="Assets carry accumulated proof; protect option value.",
-        primary_metrics=("hook_rate", "hold_rate", "outbound_ctr", "age_days"),
+        id="creative-architect",
+        title="The Creative Architect",
+        mandate="Creative is the targeting. The algorithm finds an audience; "
+        "the creative decides which one it finds.",
+        primary_metrics=("hook_rate", "hold_rate", "outbound_ctr",
+                         "cost_per_cart", "days_since_graduation"),
         always_argues_for=("duplicate.post_id", "adset.create_cohort",
                            "ad.activate", "reserve.reactivate"),
         always_argues_against=("ad.pause@KILL",),
-        blind_spot="Falls in love with beautiful losers and spends forever on "
-        "discovery at the portfolio's expense.",
+        blind_spot="Treats every loss as needing one more variant, so left "
+        "alone it tests forever. Undervalues that a mediocre concept at scale "
+        "outearns a brilliant one in test.",
     ),
     Archetype(
-        id="growth",
-        title="The Growth",
-        mandate="Maximise spend subject to blended return near target.",
-        primary_metrics=("return", "spend", "aov"),
+        id="media-economist",
+        title="The Media Economist",
+        mandate="Platform-reported return is a marketing claim, not a "
+        "measurement. Only blended economics are real.",
+        primary_metrics=("blended_mer", "marginal_return", "contribution_margin",
+                         "data_density", "baseline"),
+        always_argues_for=("ad.pause", "campaign.budget_decrease",
+                           "ad.pause@KILL", "adset.pause"),
+        always_argues_against=("campaign.budget_increase", "adset.create_cohort"),
+        blind_spot="Starves the testing engine to protect the blend, and "
+        "conflates statistical significance with commercial urgency. An "
+        "account can be perfectly measured and quietly dying.",
+    ),
+    Archetype(
+        id="scaling-operator",
+        title="The Scaling Operator",
+        mandate="Volume at target, not maximum efficiency. An under-scaled "
+        "winner is a loss that appears on no dashboard.",
+        primary_metrics=("marginal_return", "spend_velocity", "days_at_flat_budget",
+                         "unharvested_graduates", "aov"),
         always_argues_for=("campaign.budget_increase", "duplicate.post_id",
                            "reserve.reactivate", "ad.activate"),
-        always_argues_against=("campaign.budget_decrease", "adset.pause"),
-        blind_spot="Buys revenue at declining margin; the blend can rot while "
-        "spend climbs.",
+        always_argues_against=("campaign.budget_decrease", "adset.pause",
+                               "campaign.pause"),
+        blind_spot="Mistakes a ceiling for a plateau. Buys revenue at declining "
+        "margin and calls it growth; will scale into fatigue and read the "
+        "decline as an auction problem.",
     ),
     Archetype(
-        id="risk",
+        id="risk-officer",
         title="The Risk Officer",
-        mandate="Assume the data is lying until proven otherwise.",
-        primary_metrics=("paused_spend_share", "pull_completeness", "breaker_floor"),
+        mandate="The account is one confident, wrong run away from ruin. "
+        "Assume the data is lying until proven otherwise.",
+        primary_metrics=("paused_spend_share", "pull_completeness",
+                         "concentration", "breaker_floor", "verification"),
         always_argues_for=(),
         always_argues_against=("duplicate.post_id", "campaign.budget_increase",
                                "adset.create_cohort"),
         hard_veto="anomaly_guard: any action set the anomaly guard flags is "
         "vetoed outright (§10)",
-        blind_spot="Would freeze the account into stasis; a paused account has "
-        "no risk and no return.",
+        blind_spot="Paralysis. Treats every anomaly as a fault and every "
+        "unknown as a risk, forgetting that declining to act is also a "
+        "decision with a cost — one that never appears in an audit log.",
     ),
     Archetype(
-        id="brand",
-        title="The Brand Guardian",
-        mandate="Nothing ships to a page or taxonomy that betrays the catalogue.",
-        primary_metrics=("cart_rate", "destination_url", "url_tags"),
+        id="brand-steward",
+        title="The Brand Steward",
+        mandate="Every impression is a deposit or a withdrawal. Performance "
+        "borrowed against the brand comes due on someone else's dashboard.",
+        primary_metrics=("frequency", "destination_url", "url_tags",
+                         "cart_rate", "creative_repetition"),
         always_argues_for=(),
         always_argues_against=("ad.activate",),
         hard_veto="destination_policy: any action whose destination URL "
         "violates policy.destination is vetoed outright",
-        blind_spot="Perfectionism: a landing page that never changes is a "
-        "landing page nobody visits.",
+        blind_spot="Prices in brand equity nobody can measure and will veto "
+        "profitable plays on taste. Its strongest arguments are its least "
+        "falsifiable ones.",
     ),
 )
 
@@ -138,26 +154,85 @@ class ContestedAction:
     notes: list[str] = field(default_factory=list)
 
 
+#: Share of stage revenue above which a single post is treated as a
+#: concentration risk, making any action on it worth arguing about
+#: (docs/debate-protocol.md §1).
+CONCENTRATION_THRESHOLD = 0.40
+
+
+def _borderline(action: Action) -> Optional[str]:
+    """Why this action is genuinely arguable, or None if it is clear-cut.
+
+    Standing opposition between two archetypes is necessary but nowhere near
+    sufficient. The efficiency lens supports every kill and the creative lens
+    opposes every kill, so opposition alone marks *every* kill contested — and
+    an ad with zero carts on $200 of spend is not a matter of opinion. Debating
+    it wastes tokens and, worse, trains the reader to skim the ones that matter.
+
+    So the evidence has to say the call is close. The cases below are exactly
+    the contested list in docs/debate-protocol.md §1.
+    """
+    ev = action.evidence if isinstance(getattr(action, "evidence", None), dict) else {}
+    gate = action.source_gate.value if action.source_gate is not None else ""
+
+    if ev.get("speculative"):
+        return "SPECULATIVE graduation — thin evidence by construction (§5)"
+    if ev.get("path") == "B" or ev.get("graduate_path") == "B":
+        return ("graduated on return rather than efficiency — expensive per "
+                "cart but demonstrably earning (§5 Path B)")
+    if _near_ceiling(ev):
+        return ("cost per cart sits near the 1.80× baseline ceiling, where "
+                "gates.md §5 requires a proposal rather than an execution")
+    if gate in ("BUDGET_UP", "BUDGET_DOWN") or action.verb.startswith("campaign.budget"):
+        return "a budget move — marginal versus average return is the whole argument (§8)"
+    if ev.get("auction_close") or ev.get("auction_shift"):
+        return "the auction-versus-fatigue check was close (§7.1)"
+    share = ev.get("revenue_share")
+    if isinstance(share, (int, float)) and share > CONCENTRATION_THRESHOLD:
+        return (f"this post carries {share:.0%} of stage revenue — "
+                "concentration is fragility (§1)")
+    return None
+
+
+def _near_ceiling(ev: dict[str, Any]) -> bool:
+    """True when cost per cart is within 10% of the Path B ceiling."""
+    cpc, ceiling = ev.get("cost_per_cart"), ev.get("return_cpc_ceiling")
+    if not isinstance(cpc, (int, float)) or not isinstance(ceiling, (int, float)):
+        return False
+    return ceiling > 0 and cpc >= 0.90 * ceiling
+
+
 def contested(actions: list[Action], roster: tuple[Archetype, ...] = AGENT_ROSTER
               ) -> list[ContestedAction]:
     """Mark every action the council would actually argue about.
 
-    An action is contested when at least two archetypes score it in opposite
-    directions — one SUPPORT and one OPPOSE. Uncontested actions pass
-    straight through to dispatch.
+    Two conditions, both required. At least two archetypes must score the
+    action in opposite directions, AND the gate evidence must show the call is
+    genuinely close (``_borderline``). Everything else executes on gates alone
+    and appears in the report as uncontested.
+
+    Calibration target is roughly one action in five (docs/debate-protocol.md
+    §5). Far more means the gates are mistuned and the council is compensating
+    for them, which is the wrong layer; far fewer means this filter has become
+    too narrow and the council is decorative.
     """
     results: list[ContestedAction] = []
     for action in actions:
         supporters = tuple(a.id for a in roster if a.stance(action) == SUPPORT)
         opposers = tuple(a.id for a in roster if a.stance(action) == OPPOSE)
-        if supporters and opposers:
-            results.append(
-                ContestedAction(
-                    action=action,
-                    supporters=supporters,
-                    opposers=opposers,
-                )
+        if not (supporters and opposers):
+            continue
+        why = _borderline(action)
+        if why is None:
+            continue
+        results.append(
+            ContestedAction(
+                action=action,
+                supporters=supporters,
+                opposers=opposers,
+                notes=[why],
             )
+        )
     return results
 
 

@@ -261,6 +261,11 @@ class Action:
     authorized: bool = True
     rationale: str = ""
     source_gate: Optional[Decision] = None
+    #: The numeric evidence from the GateResult that produced this action.
+    #: It rides along for two reasons: the audit entry records why a write
+    #: happened (docs/writes.md mechanism 10), and council.contested() reads it
+    #: to decide whether the call was close enough to be worth arguing about.
+    evidence: dict[str, Any] = field(default_factory=dict)
 
     def as_proposal(self, rationale: str) -> "Action":
         """Return a copy downgraded to an unauthorized proposal."""
@@ -271,4 +276,5 @@ class Action:
             authorized=False,
             rationale=rationale,
             source_gate=self.source_gate,
+            evidence=dict(self.evidence),
         )

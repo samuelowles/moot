@@ -232,10 +232,12 @@ class Pipeline:
             authorized=self.config.envelope.is_authorized("ad.pause"),
             rationale=rationale,
             source_gate=result.decision,
+            evidence=dict(result.evidence),
         )
 
     def _cohort_action(
-        self, checks: Any, source_decision: Decision
+        self, checks: Any, source_decision: Decision,
+        source_evidence: Optional[dict[str, Any]] = None,
     ) -> Optional[Action]:
         """The §5 cohort-ad-set creation, once per (campaign, name) per run."""
         name = checks.destination_adset_to_create or ""
@@ -256,6 +258,7 @@ class Pipeline:
             authorized=self.config.envelope.is_authorized("adset.create_cohort"),
             rationale="destination ad set absent — created PAUSED (§5 action)",
             source_gate=source_decision,
+            evidence=dict(source_evidence or {}),
         )
 
     def _duplicate_action(
@@ -266,6 +269,7 @@ class Pipeline:
         destination_stage: Stage,
         *,
         rationale: str,
+        source_evidence: Optional[dict[str, Any]] = None,
     ) -> Optional[Action]:
         """One duplicate per (destination campaign, post id) per run (§9 A).
 
@@ -302,10 +306,12 @@ class Pipeline:
             authorized=self.config.envelope.is_authorized("duplicate.post_id"),
             rationale=rationale,
             source_gate=source_decision,
+            evidence=dict(source_evidence or {}),
         )
 
     def _blocked_proposal(
-        self, ad: Ad, decision: Decision, reason: str
+        self, ad: Ad, decision: Decision, reason: str,
+        evidence: Optional[dict[str, Any]] = None,
     ) -> Action:
         return Action(
             verb="duplicate.post_id",
@@ -314,6 +320,7 @@ class Pipeline:
             authorized=False,
             rationale=reason,
             source_gate=decision,
+            evidence=dict(evidence or {}),
         )
 
     def _retirement_actions(
@@ -346,6 +353,7 @@ class Pipeline:
                                 "retirement held (source keeps delivering)."
                             ),
                             source_gate=result.decision,
+                            evidence=dict(result.evidence),
                         )
                     ],
                 )
@@ -405,6 +413,7 @@ class Pipeline:
                     authorized=False,
                     rationale="; ".join(checks.reasons),
                     source_gate=result.decision,
+                    evidence=dict(result.evidence),
                 )
             ],
         )
@@ -435,6 +444,7 @@ class Pipeline:
                                 "duplicating without it would mint a fresh post."
                             ),
                             source_gate=Decision.GRADUATE,
+                            evidence=dict(result.evidence),
                         )
                     ],
                 )
@@ -478,6 +488,7 @@ class Pipeline:
                     authorized=False,
                     rationale="; ".join(checks.reasons),
                     source_gate=Decision.GRADUATE,
+                    evidence=dict(result.evidence),
                 )
             ],
         )
@@ -498,6 +509,7 @@ class Pipeline:
                     authorized=False,
                     rationale=result.reasons[0],
                     source_gate=Decision.BUDGET_UP,
+                    evidence=dict(result.evidence),
                 )
             ],
         )
@@ -519,6 +531,7 @@ class Pipeline:
                             authorized=False,
                             rationale=result.reasons[0],
                             source_gate=Decision.BUDGET_UP,
+                            evidence=dict(result.evidence),
                         )
                     ],
                 )
@@ -537,6 +550,7 @@ class Pipeline:
                         authorized=self.config.envelope.is_authorized("campaign.budget_increase"),
                         rationale=result.reasons[0],
                         source_gate=Decision.BUDGET_UP,
+                        evidence=dict(result.evidence),
                     )
                 ],
                 [],
@@ -560,6 +574,7 @@ class Pipeline:
                         authorized=self.config.envelope.is_authorized("campaign.budget_decrease"),
                         rationale=result.reasons[0],
                         source_gate=Decision.BUDGET_DOWN,
+                        evidence=dict(result.evidence),
                     )
                 ],
                 [],
