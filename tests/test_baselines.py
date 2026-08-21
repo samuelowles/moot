@@ -122,3 +122,26 @@ class TestHandmade:
     def test_market_baseline_seeded_flag(self):
         baseline = MarketBaseline(market="NZ", value=10.0, source="seeded", seeded_from="AU")
         assert baseline.kill_gates_only is True
+
+
+class TestSeedOutranksFallback:
+    """§3: a market with BOTH seed_from and baseline_fallback seeds — a
+    seeded market runs kill gates only, so it cannot promote on a bar it has
+    not earned; the fallback would silently re-enable promotion."""
+
+    def test_both_configured_market_is_seeded(self, tmp_path, snapshot):
+        import yaml
+        from agon.config import load_config
+        from conftest import CONFIG_PATH
+
+        payload = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
+        payload["markets"]["US"]["baseline_fallback"] = 33.0
+        path = tmp_path / "config.yaml"
+        path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+        config = load_config(path)
+        baselines = compute_baselines(snapshot.adsets, config)
+        us = baselines["US"]
+        assert us.source == "seeded"
+        assert us.kill_gates_only is True
+        # Seeded from AU's live computed baseline, not the 33.0 fallback.
+        assert us.value == pytest.approx(baselines["AU"].value)

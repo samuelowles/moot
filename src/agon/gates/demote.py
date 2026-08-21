@@ -27,13 +27,13 @@ class DemoteGate:
             return []
         recent, lifetime = ad.recent, ad.lifetime
         floor = ctx.config.threshold("fatigue_return_floor")  # §7 uses 0.71 × T
-        fatigue = ctx.config.fatigue  # min_spend/min_age defaults shared shape
+        demote = ctx.config.demote  # §7's own keys; default to the §6 values
 
         unmet: list[str] = []
-        if recent is None or recent.spend is None or recent.spend < fatigue.min_spend:
+        if recent is None or recent.spend is None or recent.spend < demote.min_spend:
             unmet.append(
                 f"recent spend {None if recent is None else recent.spend} < "
-                f"{fatigue.min_spend}"
+                f"{demote.min_spend}"
             )
         ret = None if recent is None else recent.return_
         if ret is None or ret >= floor:
@@ -41,11 +41,11 @@ class DemoteGate:
         if (
             lifetime is None
             or lifetime.purchases is None
-            or lifetime.purchases < fatigue.min_lifetime_purchases
+            or lifetime.purchases < demote.min_lifetime_purchases
         ):
             unmet.append("lifetime purchases below minimum")
-        if ad.age_days is None or ad.age_days < fatigue.min_age_days:
-            unmet.append(f"age {ad.age_days} below {fatigue.min_age_days}d")
+        if ad.age_days is None or ad.age_days < demote.min_age_days:
+            unmet.append(f"age {ad.age_days} below {demote.min_age_days}d")
         if unmet:
             return []
 
@@ -55,9 +55,9 @@ class DemoteGate:
                 entity_id=ad.id,
                 reasons=[
                     f"DEMOTE — scaled ad below floor: recent spend "
-                    f"{recent.spend} ≥ {fatigue.min_spend}, return {ret:.2f} < "
+                    f"{recent.spend} ≥ {demote.min_spend}, return {ret:.2f} < "
                     f"{floor:.2f}, {lifetime.purchases} lifetime purchases, age "
-                    f"{ad.age_days}d ≥ {fatigue.min_age_days}d.",
+                    f"{ad.age_days}d ≥ {demote.min_age_days}d.",
                 ],
                 evidence={
                     "gate": "demote",

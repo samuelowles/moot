@@ -263,6 +263,11 @@ class KillGate:
         per market because the same asset is routinely alive in one and dead
         in another. Independent of hook rate by design — high click-through
         with zero carts is the *more* damning signal (framework.md §5).
+
+        §11.2: absence is not evidence. Only ads with a RECORDED value join
+        each aggregate, and the limb requires at least one recorded cart
+        figure — a concept whose every ad reports carts as absent (not zero)
+        is unreadable on click quality, not dead on it.
         """
         if ad.post_id is None:
             return []
@@ -271,12 +276,31 @@ class KillGate:
             for other in ctx.market_ads
             if other.post_id == ad.post_id and other.market == ad.market
         ]
-        clicks = sum(a.recent.outbound_clicks or 0 for a in concept_ads if a.recent)
-        carts = sum(a.recent.carts or 0 for a in concept_ads if a.recent)
+        clicks = sum(
+            a.recent.outbound_clicks
+            for a in concept_ads
+            if a.recent is not None and a.recent.outbound_clicks is not None
+        )
+        recorded_carts = [
+            a.recent.carts
+            for a in concept_ads
+            if a.recent is not None and a.recent.carts is not None
+        ]
+        if not recorded_carts:
+            # No ad in the concept recorded a cart count: absence is not the
+            # zero this limb kills on.
+            return []
+        carts = sum(recorded_carts)
         if clicks < DEAD_CLICK_MIN_OUTBOUND:
             return []
         cart_rate = carts / clicks if clicks else None
-        floor = ctx.config.kill.cart_rate_floor
+        # §3.2: prefer the market's computed cart-rate band (its low edge —
+        # below the worst healthy top-quartile cart rate is dead); fall back
+        # to the configured floor when no band is available this run.
+        band = ctx.baseline().cart_rate_band
+        band_low = band[0] if band is not None else None
+        floor = band_low if band_low is not None else ctx.config.kill.cart_rate_floor
+        floor_source = "computed_band_low" if band_low is not None else "configured_floor"
         dead = carts == 0 or (cart_rate is not None and cart_rate < floor)
         if not dead:
             return []
@@ -299,6 +323,8 @@ class KillGate:
                     "aggregate_carts": carts,
                     "aggregate_cart_rate": cart_rate,
                     "cart_rate_floor": floor,
+                    "cart_rate_floor_source": floor_source,
+                    "ads_without_recorded_carts": len(concept_ads) - len(recorded_carts),
                     "min_outbound_clicks": DEAD_CLICK_MIN_OUTBOUND,
                 },
             )

@@ -32,12 +32,21 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_GRAPH_VERSION = "v23.0"
 
+# §11.6 backstop: pagination must terminate. A stable repeated cursor or a
+# chain longer than any real account page count means the cursor chain is
+# broken — raise rather than loop (or burn quota) forever.
+MAX_PAGES = 200
+
 AD_FIELDS = (
     "id,name,status,effective_status,adset_id,campaign_id,"
     "creative{effective_object_story_id,url_tags}"
 )
 ADSET_FIELDS = "id,name,status,effective_status,campaign_id,daily_budget"
 CAMPAIGN_FIELDS = "id,name,status,effective_status,account_id,daily_budget"
+
+# §9 A2: enumerate every status INCLUDING ARCHIVED — "all ad sets, all
+# statuses". Graph excludes ARCHIVED from the default set.
+EFFECTIVE_STATUS_FILTER = ["ACTIVE", "PAUSED", "ARCHIVED"]
 
 # §11.8 — attribution window held constant across every comparison in a run.
 ATTRIBUTION_WINDOWS = ["7d_click", "1d_view"]
@@ -52,6 +61,16 @@ def _post_id_from_story_id(story_id: Optional[str]) -> Optional[str]:
     if not story_id or "_" not in story_id:
         return story_id
     return story_id.split("_", 1)[1]
+
+
+def _normalise_account_id(account_id: str) -> str:
+    """Account ids are compared on their bare numeric form.
+
+    Graph returns bare numerics (``100000000000001``) on most reads while
+    config is conventionally written with the ``act_`` prefix — both spell
+    the same account, and the allowlist must match either (writes.md §6).
+    """
+    return account_id[len("act_"):] if account_id.startswith("act_") else account_id
 
 
 class MetaAdapter:
@@ -106,15 +125,20 @@ class MetaAdapter:
 
         Raises :class:`IncompletePullError` when paging signals more data but
         the cursor chain breaks — a short result must never masquerade as the
-        complete set.
+        complete set — and when the chain repeats a cursor or exceeds
+        ``MAX_PAGES``: a cursor that never advances is an infinite loop, not
+        an exhaustive read, and a headless run must fail rather than hang.
         """
         rows: list[dict[str, Any]] = []
         after: Optional[str] = None
+        seen_cursors: set[str] = set()
+        pages = 0
         while True:
             page_params = dict(params)
             if after is not None:
                 page_params["after"] = after
             payload = self._get(path, page_params)
+            pages += 1
             rows.extend(payload.get("data", []))
             paging = payload.get("paging") or {}
             cursors = paging.get("cursors") or {}
@@ -126,6 +150,18 @@ class MetaAdapter:
                 )
             if not after:
                 return rows
+            if after in seen_cursors:
+                raise IncompletePullError(
+                    f"GET {path}: pagination cursor {after!r} repeated after "
+                    f"{pages} page(s) — the chain is not advancing; refusing "
+                    "to loop or to return a partial result as complete"
+                )
+            seen_cursors.add(after)
+            if pages >= MAX_PAGES:
+                raise IncompletePullError(
+                    f"GET {path}: exceeded the {MAX_PAGES}-page ceiling with "
+                    "paging still advertising more — refusing to loop"
+                )
 
     def _post(self, path: str, params: dict[str, Any]) -> dict[str, Any]:
         """POST with a validate_only rehearsal first; abort on failure."""
@@ -160,7 +196,9 @@ class MetaAdapter:
             raise WriteRefusedError(
                 "no allowed account ids configured — Agon refuses every write"
             )
-        if act_id not in self.allowed_account_ids:
+        bare = _normalise_account_id(act_id)
+        allowed = {a: _normalise_account_id(a) for a in self.allowed_account_ids}
+        if bare not in allowed.values():
             raise WriteRefusedError(
                 f"account {act_id} is not in allowed_account_ids "
                 f"({', '.join(self.allowed_account_ids)}) — write refused"
@@ -193,16 +231,35 @@ class MetaAdapter:
         params = {
             "time_preset": preset,  # named preset only — §11.7
             "action_attribution_windows": json.dumps(ATTRIBUTION_WINDOWS),  # §11.8
+            # video_3_sec_watched_actions is the real Graph field (an ACTION
+            # ARRAY, §11.2/§11.5); video_3s_views is not a field and makes
+            # every live insights call fail with Graph error 100.
             "fields": (
                 "spend,impressions,clicks,cpm,frequency,outbound_clicks,"
                 "outbound_clicks_ctr,actions,action_values,"
-                "video_3s_views,video_thruplay_watched_actions"
+                "video_3_sec_watched_actions,video_thruplay_watched_actions"
             ),
         }
         rows = self._get_all_pages(f"{entity_id}/insights", params)
         if not rows:
             return None
         return parse_insights_row(rows[0])
+
+    def _insights_safe(
+        self, entity_id: str, window: str, pull_errors: list[str]
+    ) -> Optional[Metrics]:
+        """One insights read that cannot crash the pull (§10 breaker 2).
+
+        A failing insights call is a GAP, not an exception past the pipeline:
+        the error is recorded in ``pull_errors`` (which makes
+        ``pull_complete=False`` → no writes this run) and the entity's window
+        stays ``None`` so no gate reads a synthesised number from it.
+        """
+        try:
+            return self._insights(entity_id, window)
+        except (AdapterError, IncompletePullError, ValueError) as exc:
+            pull_errors.append(f"insights {window} for {entity_id}: {exc}")
+            return None
 
     def fetch_entities(self) -> EntitySnapshot:
         account_id = (
@@ -241,10 +298,10 @@ class MetaAdapter:
                     status=row.get("status"),
                     effective_status=row.get("effective_status"),
                     account_id=row.get("account_id"),
-                    daily_budget=_as_float(row.get("daily_budget")),
-                    recent=self._insights(row["id"], "recent"),
-                    trailing=self._insights(row["id"], "trailing"),
-                    lifetime=self._insights(row["id"], "lifetime"),
+                    daily_budget=_budget_to_major(row.get("daily_budget")),
+                    recent=self._insights_safe(row["id"], "recent", pull_errors),
+                    trailing=self._insights_safe(row["id"], "trailing", pull_errors),
+                    lifetime=self._insights_safe(row["id"], "lifetime", pull_errors),
                 )
             )
         for row in adset_rows:
@@ -255,14 +312,14 @@ class MetaAdapter:
                     status=row.get("status"),
                     effective_status=row.get("effective_status"),
                     campaign_id=row.get("campaign_id"),
-                    daily_budget=_as_float(row.get("daily_budget")),
-                    recent=self._insights(row["id"], "recent"),
-                    trailing=self._insights(row["id"], "trailing"),
-                    lifetime=self._insights(row["id"], "lifetime"),
+                    daily_budget=_budget_to_major(row.get("daily_budget")),
+                    recent=self._insights_safe(row["id"], "recent", pull_errors),
+                    trailing=self._insights_safe(row["id"], "trailing", pull_errors),
+                    lifetime=self._insights_safe(row["id"], "lifetime", pull_errors),
                 )
             )
         for row in ad_rows:
-            ads.append(self._ad_from_row(row))
+            ads.append(self._ad_from_row(row, pull_errors))
         return EntitySnapshot(
             account_id=account_id,
             campaigns=campaigns,
@@ -272,11 +329,14 @@ class MetaAdapter:
             errors=pull_errors,
         )
 
-    def _ad_from_row(self, row: dict[str, Any]) -> Ad:
+    def _ad_from_row(
+        self, row: dict[str, Any], pull_errors: Optional[list[str]] = None
+    ) -> Ad:
         creative = row.get("creative") or {}
         story_id = creative.get("effective_object_story_id")
-        recent = self._insights(row["id"], "recent")
-        trailing = self._insights(row["id"], "trailing")
+        errors = pull_errors if pull_errors is not None else []
+        recent = self._insights_safe(row["id"], "recent", errors)
+        trailing = self._insights_safe(row["id"], "trailing", errors)
         # Creative-type inference per §11.5: static creative has no video
         # actions, so video data in either window means video creative. A
         # misread lands conservatively (STATIC skips hook gates rather than
@@ -296,7 +356,7 @@ class MetaAdapter:
             creative_type=CreativeType.VIDEO if has_video_actions else CreativeType.STATIC,
             recent=recent,
             trailing=trailing,
-            lifetime=self._insights(row["id"], "lifetime"),
+            lifetime=self._insights_safe(row["id"], "lifetime", errors),
         )
 
     def fetch_insights(self, entity_id: str, window: str) -> list[dict[str, Any]]:
@@ -316,10 +376,44 @@ class MetaAdapter:
         row = self._get(ad_id, {"fields": AD_FIELDS})
         return self._ad_from_row(row)
 
+    def get_adset(self, adset_id: str) -> AdSet:
+        """One ad set — the mechanism-9 read-back for ad-set status writes."""
+        row = self._get(adset_id, {"fields": ADSET_FIELDS})
+        return AdSet(
+            id=row["id"],
+            name=row.get("name", ""),
+            status=row.get("status"),
+            effective_status=row.get("effective_status"),
+            campaign_id=row.get("campaign_id"),
+            daily_budget=_budget_to_major(row.get("daily_budget")),
+        )
+
+    def get_campaign(self, campaign_id: str) -> Campaign:
+        """One campaign — the mechanism-9 read-back for budget writes."""
+        row = self._get(campaign_id, {"fields": CAMPAIGN_FIELDS})
+        return Campaign(
+            id=row["id"],
+            name=row.get("name", ""),
+            status=row.get("status"),
+            effective_status=row.get("effective_status"),
+            account_id=row.get("account_id"),
+            daily_budget=_budget_to_major(row.get("daily_budget")),
+        )
+
     def list_ads_in_campaign(self, campaign_id: str) -> list[Ad]:
-        """Every ad in the campaign — all ad sets, all statuses (§9 A)."""
+        """Every ad in the campaign — all ad sets, all statuses (§9 A).
+
+        The explicit ``effective_status`` filter includes ARCHIVED, which
+        Graph otherwise omits: §9 A2 enumerates "all statuses" so a post
+        surviving on an archived copy still blocks a duplicate.
+        """
         rows = self._get_all_pages(
-            f"{campaign_id}/ads", {"fields": AD_FIELDS, "limit": 100}
+            f"{campaign_id}/ads",
+            {
+                "fields": AD_FIELDS,
+                "limit": 100,
+                "effective_status": json.dumps(EFFECTIVE_STATUS_FILTER),
+            },
         )
         return [self._ad_from_row(row) for row in rows]
 
@@ -356,10 +450,14 @@ class MetaAdapter:
         name: str,
         status: str = "PAUSED",
         url_tags: str | None = None,
+        post_id: str | None = None,
         *,
         dry_run: bool,
         validate_only: bool,
     ) -> str:
+        # ``post_id`` is on the protocol so fixture and live signatures match;
+        # the live chain carries it inside the creative (object_story_id), so
+        # it is accepted and not re-sent here.
         self._check_account(act_id)
         params: dict[str, Any] = {
             "name": name,
@@ -404,7 +502,9 @@ class MetaAdapter:
     ) -> None:
         account = self._account_of(campaign_id, "campaign")
         self._check_account(account)
-        params: dict[str, Any] = {"daily_budget": f"{daily_amount:.2f}"}
+        # Minor units on the wire — see MINOR_UNITS_PER_MAJOR. `daily_amount`
+        # arrives in major units, already clamped by the write layer.
+        params: dict[str, Any] = {"daily_budget": str(_budget_to_minor(daily_amount))}
         if dry_run or validate_only:
             self._post_raw(campaign_id, {**params, "execution_options": ["validate_only"]})
             return
@@ -496,3 +596,31 @@ def _as_float(value: Any) -> Optional[float]:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+# Graph both returns and accepts budget fields in the account's MINOR currency
+# unit — cents for a two-decimal currency. Agon works in major units everywhere
+# else (the gates, the clamp, the report), so the conversion happens at this
+# adapter boundary and nowhere else.
+#
+# Getting this wrong is silent and expensive in both directions: reading 10000
+# as $10,000 rather than $100 makes the +30% clamp compute against a figure two
+# orders of magnitude too large, and writing "130.00" for a $130 budget sets
+# $1.30 and quietly stops delivery.
+#
+# KNOWN LIMITATION: zero-decimal currencies (JPY, KRW) have an offset of 1, not
+# 100. Meta exposes this as `currency_offset` on the ad account. Until that is
+# read per account, this adapter assumes a two-decimal currency and will
+# misreport budgets for zero-decimal ones.
+MINOR_UNITS_PER_MAJOR = 100
+
+
+def _budget_to_major(value: Any) -> Optional[float]:
+    """A Graph budget field (minor units) in major units, or None if absent."""
+    raw = _as_float(value)
+    return None if raw is None else raw / MINOR_UNITS_PER_MAJOR
+
+
+def _budget_to_minor(value: float) -> int:
+    """Major units as the integer minor-unit value Graph expects on a write."""
+    return int(round(value * MINOR_UNITS_PER_MAJOR))

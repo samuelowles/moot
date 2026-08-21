@@ -5,15 +5,20 @@ The defaults are the safe ones: a dry run, with nothing dispatched, unless
 ``confirm_write=True`` is passed AND the guards allow writes AND the env
 never said otherwise. Every action — dispatched, dry-run, downgraded or
 skipped — lands in an append-only JSONL audit so a considered no-op is still
-a decision worth auditing.
+a decision worth auditing. The audit redacts anything token-shaped before
+writing (docs/writes.md §4); a read-back that contradicts the intended
+change is a FAILED_VERIFY outcome, never a success (mechanism 9).
 
-There is no delete verb here, and :func:`dispatch` refuses one on sight.
+There is no delete verb here, and :func:`dispatch` refuses one on sight —
+enforced as an explicit ALLOWED-verb allowlist, so remove/destroy/archive
+are refused by the same mechanism, not by substring luck.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import re
 import uuid
@@ -22,7 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from agon.adapters.base import AdPlatformAdapter
+from agon.adapters.base import AdPlatformAdapter, PostIdMismatchError
 from agon.config import Config
 from agon.guards import GuardVerdict
 from agon.models import Action
@@ -41,7 +46,50 @@ DRY_RUN = "dry-run"
 PROPOSED = "proposed"
 SKIPPED_GUARD = "skipped-guard"
 SKIPPED_READ_ONLY = "skipped-readonly"
+SKIPPED_DEPENDENCY = "skipped-dependency"
 FAILED = "failed"
+FAILED_VERIFY = "failed-verify"
+
+# The verbs this layer can execute, exhaustively. Anything else presented as
+# executable is refused on sight (docs/writes.md mechanism 8): the absence of
+# a delete verb is enforced by this allowlist, which also covers
+# remove/destroy/archive — none of them are listed, so none can dispatch.
+ALLOWED_VERBS = frozenset(
+    {
+        "ad.pause",
+        "ad.activate",
+        "adset.pause",
+        "adset.activate",
+        "adset.create_cohort",
+        "campaign.pause",
+        "duplicate.post_id",
+        "campaign.budget_increase",
+        "campaign.budget_decrease",
+        "reserve.reactivate",
+    }
+)
+
+# docs/writes.md §4 / SECURITY.md: the audit log redacts anything token-shaped
+# before writing. Meta system-user tokens start EAA…; query-string forms are
+# caught by the access_token pattern.
+REDACTED = "[REDACTED]"
+_TOKEN_PATTERNS = (
+    re.compile(r"EAA[A-Za-z0-9]{20,}"),
+    re.compile(r"access_token=\S+"),
+)
+
+
+def _redact(value: Any) -> Any:
+    """Recursively replace token-shaped substrings in every string field."""
+    if isinstance(value, str):
+        for pattern in _TOKEN_PATTERNS:
+            value = pattern.sub(REDACTED, value)
+        return value
+    if isinstance(value, dict):
+        return {_redact(k): _redact(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_redact(v) for v in value]
+    return value
 
 
 @dataclass(frozen=True)
@@ -71,27 +119,71 @@ class DispatchResult:
 
 
 def read_only_env() -> bool:
-    """``AGON_READ_ONLY=1`` forces propose-only regardless of any flag."""
-    return os.environ.get(ENV_READ_ONLY, "").strip() in ("1", "true", "TRUE", "yes")
+    """``AGON_READ_ONLY`` forces propose-only regardless of any flag.
+
+    A kill switch must not be spelling- or case-fragile: any non-empty value
+    is ON (``Yes``, ``y``, ``on``, ``TRUE``…) except the explicit OFF words
+    ``0``/``false``/``no``/``off`` (case-insensitive) and the empty string.
+    """
+    raw = (os.environ.get(ENV_READ_ONLY) or "").strip().lower()
+    if not raw:
+        return False
+    return raw not in ("0", "false", "no", "off")
 
 
-def _clamp_budget_increase(params: dict[str, Any]) -> tuple[dict[str, Any], str]:
-    """Cap a budget step at +30% in code, whatever the plan asked for (§8)."""
-    pct = params.get("pct")
-    current = params.get("current_daily_budget")
-    if not isinstance(pct, (int, float)) or not isinstance(current, (int, float)):
-        return params, ""
-    if pct <= BUDGET_INCREASE_HARD_CAP_PCT:
-        return params, ""
+def _numeric(value: Any) -> Optional[float]:
+    """A real number, or None — bools are ints but never budgets."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
+def _clamp_budget_increase(
+    params: dict[str, Any],
+) -> tuple[dict[str, Any], str, str]:
+    """Cap a budget step at +30% in code, whatever the plan asked for (§8).
+
+    The recomputed ``new_daily_budget = current × (1 + min(pct, 30)/100)`` is
+    ALWAYS what dispatches — a plan-supplied amount is never sent verbatim,
+    because the cap is only meaningful against the real current budget. An
+    action with no numeric ``current_daily_budget`` cannot be capped against
+    anything and is refused outright (error return, never dispatched).
+    """
+    current = _numeric(params.get("current_daily_budget"))
+    if current is None or current <= 0:
+        return params, "", (
+            "campaign.budget_increase lacks a numeric positive "
+            "current_daily_budget — the §8 +30% cap cannot be verified "
+            "against an unknown base, so nothing is dispatched"
+        )
+    pct = _numeric(params.get("pct"))
+    if pct is None:
+        new = _numeric(params.get("new_daily_budget"))
+        if new is None:
+            return params, "", (
+                "campaign.budget_increase carries neither pct nor "
+                "new_daily_budget — no step to cap, refused"
+            )
+        # Derive the implied ask from the plan's own amount, then cap it.
+        pct = (new / current - 1.0) * 100.0
+    effective = min(pct, BUDGET_INCREASE_HARD_CAP_PCT)
     clamped = dict(params)
-    clamped["pct"] = BUDGET_INCREASE_HARD_CAP_PCT
-    clamped["new_daily_budget"] = current * (1 + BUDGET_INCREASE_HARD_CAP_PCT / 100.0)
-    note = (
-        f"requested +{pct:.0f}% clamped to +{BUDGET_INCREASE_HARD_CAP_PCT:.0f}% "
-        "(§8 hard cap, enforced in code)"
-    )
-    logger.warning("writes: %s", note)
-    return clamped, note
+    clamped["pct"] = effective
+    clamped["new_daily_budget"] = current * (1.0 + effective / 100.0)
+    note = ""
+    if pct > BUDGET_INCREASE_HARD_CAP_PCT:
+        note = (
+            f"requested +{pct:.0f}% clamped to "
+            f"+{BUDGET_INCREASE_HARD_CAP_PCT:.0f}% (§8 hard cap, enforced in "
+            "code); new_daily_budget recomputed from current_daily_budget"
+        )
+        logger.warning("writes: %s", note)
+    elif _numeric(params.get("new_daily_budget")) != clamped["new_daily_budget"]:
+        note = (
+            "new_daily_budget recomputed as current_daily_budget × "
+            "(1 + pct/100) — the plan's amount is never sent verbatim (§8)"
+        )
+    return clamped, note, ""
 
 
 class _Audit:
@@ -113,10 +205,8 @@ class _Audit:
     def append(self, entry: dict[str, Any]) -> None:
         if self.path is None:
             return
-        line = json.dumps(
-            {**entry, "ts": datetime.now(timezone.utc).isoformat(), **self.header},
-            default=str,
-        )
+        record = {**entry, "ts": datetime.now(timezone.utc).isoformat(), **self.header}
+        line = json.dumps(_redact(record), default=str)
         with self.path.open("a", encoding="utf-8") as handle:
             handle.write(line + "\n")
 
@@ -141,6 +231,73 @@ def _verify_ad(adapter: AdPlatformAdapter, ad_id: str, expected_status: str) -> 
     }
 
 
+def _verify_adset(
+    adapter: AdPlatformAdapter, adset_id: str, expected_status: str
+) -> dict[str, Any]:
+    """Ad-set status read-back (mechanism 9) — same shape as the ad verify."""
+    try:
+        adset = adapter.get_adset(adset_id)
+    except Exception as exc:  # noqa: BLE001 — verification must never crash dispatch
+        logger.error("writes: VERIFY FAILED for ad set %s: re-read raised %s", adset_id, exc)
+        return {"verified": False, "error": str(exc)}
+    ok = (adset.effective_status or adset.status or "").upper() == expected_status
+    if not ok:
+        logger.error(
+            "writes: VERIFY FAILED for ad set %s — expected %s, read %s/%s",
+            adset_id, expected_status, adset.status, adset.effective_status,
+        )
+    return {
+        "verified": ok,
+        "status": adset.status,
+        "effective_status": adset.effective_status,
+    }
+
+
+def _verify_campaign_status(
+    adapter: AdPlatformAdapter, campaign_id: str, expected_status: str
+) -> dict[str, Any]:
+    """Campaign status read-back (mechanism 9), used by campaign.pause."""
+    try:
+        campaign = adapter.get_campaign(campaign_id)
+    except Exception as exc:  # noqa: BLE001 — verification must never crash dispatch
+        logger.error(
+            "writes: VERIFY FAILED for campaign %s status: re-read raised %s",
+            campaign_id, exc,
+        )
+        return {"verified": False, "error": str(exc)}
+    read = campaign.effective_status or campaign.status
+    ok = read == expected_status
+    if not ok:
+        logger.error(
+            "writes: VERIFY FAILED for campaign %s — expected %s, read %s",
+            campaign_id, expected_status, read,
+        )
+    return {"verified": ok, "status": campaign.status,
+            "effective_status": campaign.effective_status, "expected": expected_status}
+
+
+def _verify_campaign_budget(
+    adapter: AdPlatformAdapter, campaign_id: str, amount: float
+) -> dict[str, Any]:
+    """Budget read-back (mechanism 9): the campaign must now carry the amount."""
+    try:
+        campaign = adapter.get_campaign(campaign_id)
+    except Exception as exc:  # noqa: BLE001 — verification must never crash dispatch
+        logger.error(
+            "writes: VERIFY FAILED for campaign %s budget: re-read raised %s",
+            campaign_id, exc,
+        )
+        return {"verified": False, "error": str(exc)}
+    read = campaign.daily_budget
+    ok = read is not None and math.isclose(read, amount, rel_tol=0.005, abs_tol=0.01)
+    if not ok:
+        logger.error(
+            "writes: VERIFY FAILED for campaign %s budget — expected %.2f, read %s",
+            campaign_id, amount, read,
+        )
+    return {"verified": ok, "daily_budget": read, "expected": amount}
+
+
 def dispatch(
     actions: list[Action],
     adapter: AdPlatformAdapter,
@@ -154,9 +311,11 @@ def dispatch(
 ) -> DispatchResult:
     """Take the computed action set through the safety layer.
 
-    Order of refusal, strongest first: no delete verb ever; ``AGON_READ_ONLY``
-    beats ``confirm_write``; the guards beat everything but read-only; the
-    envelope downgrades to a proposal rather than executing.
+    Order of refusal, strongest first: only ALLOWED verbs may execute (no
+    delete verb ever); ``AGON_READ_ONLY`` beats ``confirm_write``; the guards
+    beat everything but read-only; the envelope downgrades to a proposal
+    rather than executing. A §6/§7 pause that depends on a Reserve copy only
+    dispatches after that copy verified (``requires_verified_duplicate_of``).
     """
     run_id = str(uuid.uuid4())
     read_only = read_only_env()
@@ -165,27 +324,51 @@ def dispatch(
 
     outcomes: list[DispatchOutcome] = []
     created_adsets: dict[str, str] = {}  # "campaign_id|name" -> new ad set id
+    # Source ad ids whose duplication verified ACTIVE this run (§6/§7): a
+    # retirement pause dispatches only after its copy lands.
+    verified_duplicates: set[str] = set()
 
     for action in actions:
-        if "delete" in action.verb.lower():
-            outcome = DispatchOutcome(
-                action, FAILED, "no delete verb exists in this codebase"
+        if action.verb not in ALLOWED_VERBS and action.authorized:
+            # An action presented as executable whose verb this layer cannot
+            # execute is refused on sight. Delete-like verbs are refused by
+            # the same allowlist — no delete/remove/destroy/archive is listed.
+            detail = (
+                f"verb {action.verb!r} is not in the executable allowlist — "
+                "refused. No delete/remove/destroy/archive verb exists in "
+                "this codebase (docs/writes.md mechanism 8)."
             )
+            if "delete" in action.verb.lower():
+                detail = f"no delete verb exists in this codebase — {detail}"
+            outcome = DispatchOutcome(action, FAILED, detail)
             audit.append(
                 {"verb": action.verb, "target_id": action.target_id,
                  "outcome": FAILED, "detail": outcome.detail}
             )
             outcomes.append(outcome)
-            logger.error("writes: REFUSED delete-like verb %r", action.verb)
+            logger.error("writes: REFUSED non-executable verb %r", action.verb)
             continue
 
         params = dict(action.params)
 
         # §8: clamp BEFORE execution — the cap is enforced here in code,
-        # whatever the plan or the config asked for.
+        # whatever the plan or the config asked for. An unverifiable base is
+        # a FAILED action, never a dispatch.
         clamp_note = ""
         if action.verb == "campaign.budget_increase":
-            params, clamp_note = _clamp_budget_increase(params)
+            params, clamp_note, clamp_error = _clamp_budget_increase(params)
+            if clamp_error:
+                outcome = DispatchOutcome(action, FAILED, clamp_error)
+                audit.append(
+                    {"verb": action.verb, "target_id": action.target_id,
+                     "params": params, "outcome": FAILED, "detail": clamp_error}
+                )
+                outcomes.append(outcome)
+                logger.error(
+                    "writes: REFUSED budget increase on %s: %s",
+                    action.target_id, clamp_error,
+                )
+                continue
 
         if read_only:
             outcome = DispatchOutcome(
@@ -207,15 +390,46 @@ def dispatch(
                 "downgraded to a proposal",
             )
         else:
-            outcome = _execute(
-                action, params, adapter, config, account_id, created_adsets
-            )
-            if clamp_note:
+            requires = params.get("requires_verified_duplicate_of")
+            if requires and requires not in verified_duplicates:
+                # §6/§7: the pause follows a copy that verifies. No verified
+                # copy this run → the source keeps delivering.
                 outcome = DispatchOutcome(
-                    outcome.action, outcome.outcome,
-                    "; ".join(x for x in (outcome.detail, clamp_note) if x),
-                    outcome.verify,
+                    action, SKIPPED_DEPENDENCY,
+                    f"source ad {requires} has no verified copy this run — "
+                    "the §6/§7 pause only follows a duplication that "
+                    "verified (gates.md §6/§7)",
                 )
+            else:
+                try:
+                    outcome = _execute(
+                        action, params, adapter, config, account_id, created_adsets
+                    )
+                except PostIdMismatchError as exc:
+                    # Mechanism 9: a duplication whose post ID did not
+                    # survive raises loudly — never accepted as success.
+                    audit.append(
+                        {"verb": action.verb, "target_id": action.target_id,
+                         "params": params, "outcome": FAILED_VERIFY,
+                         "detail": f"post ID mismatch: {exc}"}
+                    )
+                    outcomes.append(
+                        DispatchOutcome(action, FAILED_VERIFY, str(exc))
+                    )
+                    raise
+                if (
+                    action.verb == "duplicate.post_id"
+                    and outcome.outcome == DISPATCHED
+                ):
+                    # The copy verified — retirements of this source may now
+                    # pause it (§6/§7).
+                    verified_duplicates.add(action.target_id)
+                if clamp_note:
+                    outcome = DispatchOutcome(
+                        outcome.action, outcome.outcome,
+                        "; ".join(x for x in (outcome.detail, clamp_note) if x),
+                        outcome.verify,
+                    )
 
         audit.append(
             {
@@ -242,7 +456,12 @@ def _execute(
     account_id: str,
     created_adsets: dict[str, str],
 ) -> DispatchOutcome:
-    """Execute one authorized action through the adapter, then verify."""
+    """Execute one authorized action through the adapter, then verify.
+
+    Every status/budget write is followed by a read-back (mechanism 9): a
+    read-back that contradicts the intended change is FAILED_VERIFY, never a
+    success. PostIdMismatchError is re-raised — it propagates loudly.
+    """
     verb = action.verb
     act = account_id or (config.account.allowed_account_ids[0]
                          if config.account.allowed_account_ids else "")
@@ -252,16 +471,46 @@ def _execute(
             adapter.set_status(action.target_id, "ad", status,
                                dry_run=False, validate_only=False)
             verify = _verify_ad(adapter, action.target_id, status)
+            if not verify.get("verified"):
+                return DispatchOutcome(
+                    action, FAILED_VERIFY,
+                    f"read-back shows ad {action.target_id} not {status}: "
+                    f"{verify.get('effective_status') or verify.get('status')}",
+                    verify,
+                )
             return DispatchOutcome(action, DISPATCHED, "", verify)
 
         if verb == "adset.pause" or verb == "adset.activate" or verb == "reserve.reactivate":
             status = "PAUSED" if verb == "adset.pause" else "ACTIVE"
             adapter.set_status(action.target_id, "adset", status,
                                dry_run=False, validate_only=False)
-            return DispatchOutcome(
-                action, DISPATCHED,
-                "", {"verified": None, "note": "adset status read not on the protocol"}
-            )
+            verify = _verify_adset(adapter, action.target_id, status)
+            if not verify.get("verified"):
+                return DispatchOutcome(
+                    action, FAILED_VERIFY,
+                    f"read-back shows ad set {action.target_id} not {status}: "
+                    f"{verify.get('effective_status') or verify.get('status')}",
+                    verify,
+                )
+            return DispatchOutcome(action, DISPATCHED, "", verify)
+
+        if verb == "campaign.pause":
+            # gates.md §8 permits pausing a Scale or Reserve campaign as the
+            # alternative to a scale-down. There is deliberately no
+            # campaign.activate counterpart: bringing a campaign back up is a
+            # decision about strategy, not about performance, and stays with
+            # the operator.
+            adapter.set_status(action.target_id, "campaign", "PAUSED",
+                               dry_run=False, validate_only=False)
+            verify = _verify_campaign_status(adapter, action.target_id, "PAUSED")
+            if not verify.get("verified"):
+                return DispatchOutcome(
+                    action, FAILED_VERIFY,
+                    f"read-back shows campaign {action.target_id} not PAUSED: "
+                    f"{verify.get('effective_status') or verify.get('status')}",
+                    verify,
+                )
+            return DispatchOutcome(action, DISPATCHED, "", verify)
 
         if verb == "adset.create_cohort":
             name = params.get("name", "")
@@ -271,9 +520,16 @@ def _execute(
                 status="PAUSED", dry_run=False, validate_only=False,
             )
             created_adsets[f"{campaign_id}|{name}"] = new_id
-            return DispatchOutcome(
-                action, DISPATCHED, "", {"verified": True, "new_adset_id": new_id}
-            )
+            verify = _verify_adset(adapter, new_id, "PAUSED")
+            verify["new_adset_id"] = new_id
+            if not verify.get("verified"):
+                return DispatchOutcome(
+                    action, FAILED_VERIFY,
+                    f"created ad set {new_id} did not read back PAUSED: "
+                    f"{verify.get('effective_status') or verify.get('status')}",
+                    verify,
+                )
+            return DispatchOutcome(action, DISPATCHED, "", verify)
 
         if verb == "duplicate.post_id":
             return _dispatch_duplicate(action, params, adapter, config, act, created_adsets)
@@ -284,14 +540,22 @@ def _execute(
                 return DispatchOutcome(action, FAILED, "no computed budget amount")
             adapter.set_campaign_budget(action.target_id, float(amount),
                                         dry_run=False, validate_only=False)
-            return DispatchOutcome(
-                action, DISPATCHED,
-                "", {"verified": None, "note": "campaign budget read not on the protocol"}
-            )
+            verify = _verify_campaign_budget(adapter, action.target_id, float(amount))
+            if not verify.get("verified"):
+                return DispatchOutcome(
+                    action, FAILED_VERIFY,
+                    f"read-back shows campaign {action.target_id} carrying "
+                    f"{verify.get('daily_budget')}, expected {float(amount):.2f}",
+                    verify,
+                )
+            return DispatchOutcome(action, DISPATCHED, "", verify)
 
         return DispatchOutcome(
-            action, PROPOSED, f"unknown verb {verb!r} — not executed"
+            action, FAILED, f"unknown verb {verb!r} — not executed"
         )
+    except PostIdMismatchError:
+        # Mechanism 9: raise loudly rather than accept a post-ID loss.
+        raise
     except Exception as exc:  # noqa: BLE001 — a failed write is an outcome, not a crash
         logger.error("writes: dispatch of %s %s FAILED: %s", verb, action.target_id, exc)
         return DispatchOutcome(action, FAILED, str(exc))
@@ -323,6 +587,14 @@ def _dispatch_duplicate(
         market = source.market
         market_cfg = config.markets.get(market or "")
         page_id = (market_cfg.destination_page_id if market_cfg else "") or ""
+    if not page_id:
+        # §9 B spirit: without the page the creative cannot reference the
+        # post — propose, never mint a fresh one.
+        return DispatchOutcome(
+            action, PROPOSED,
+            f"destination page id unresolved for market {source.market!r} — "
+            "duplicating without it would mint a fresh post",
+        )
     suffix = config.naming.duplicate_suffix.format(
         stage=str(params.get("destination_stage", "SCALE")).lower()
     )
@@ -337,7 +609,6 @@ def _dispatch_duplicate(
     )
     # url_tags carried from source (§9 C) — the adapter threads them; evidence:
     evidence: dict[str, Any] = {
-        "verified": True,
         "new_ad_id": new_ad_id,
         "post_id": source.post_id,
         "url_tags": source.url_tags,
@@ -346,19 +617,26 @@ def _dispatch_duplicate(
     if pattern_note:
         evidence["naming_flag"] = pattern_note
 
-    # §5: graduates are born PAUSED and activated only after verification.
+    # §5: duplicates are born PAUSED and activated only after verification —
+    # including Reserve copies (§6/§7: the source pause follows a copy that
+    # verifies ACTIVE, so the copy must actually reach ACTIVE).
     if params.get("activate_after_verify"):
         adapter.set_status(new_ad_id, "ad", "ACTIVE", dry_run=False, validate_only=False)
         evidence["activation"] = _verify_ad(adapter, new_ad_id, "ACTIVE")
+        evidence["verified"] = bool(evidence["activation"].get("verified"))
     else:
         evidence["born_paused"] = _verify_ad(adapter, new_ad_id, "PAUSED")
-    if not (
-        evidence.get("activation", {}).get("verified", True)
-        and evidence.get("born_paused", {}).get("verified", True)
-    ):
+        evidence["verified"] = bool(evidence["born_paused"].get("verified"))
+    if not evidence["verified"]:
         logger.error(
-            "writes: duplicate of %s verified FAILED — copy status unexpected",
+            "writes: duplicate of %s FAILED verification — copy status unexpected",
             action.target_id,
+        )
+        return DispatchOutcome(
+            action, FAILED_VERIFY,
+            f"copy {new_ad_id} did not verify — read-back contradicts the "
+            "intended status (mechanism 9)",
+            evidence,
         )
     return DispatchOutcome(action, DISPATCHED, pattern_note, evidence)
 

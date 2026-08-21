@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from agon.metrics import (
     extract_action,
     extract_action_value,
@@ -111,3 +113,66 @@ class TestVideoFields:
         )
         assert metrics.video_3s == 0
         assert metrics.hook_rate == 0.0
+
+
+class TestLiveGraphActionArrayVideo:
+    """video_3_sec_watched_actions arrives as a sparse ACTION ARRAY on the
+    live Graph API (§11.2/§11.5) — not a scalar. A to_int read yields None,
+    every live ad reads STATIC, and the §5 hook gate goes inert."""
+
+    def test_realistic_video_row_computes_hook_rate(self):
+        row = {
+            "spend": "250.00",
+            "impressions": "15000",
+            "clicks": "300",
+            "outbound_clicks": "200",
+            "outbound_clicks_ctr": "0.013",
+            "actions": [
+                {"action_type": "omni_purchase", "value": "3"},
+                {"action_type": "omni_add_to_cart", "value": "30"},
+            ],
+            "action_values": [
+                {"action_type": "omni_purchase_value", "value": "1500.00"}
+            ],
+            "video_3_sec_watched_actions": [
+                {"action_type": "video_view", "value": "3750"}
+            ],
+            "video_thruplay_watched_actions": [
+                {"action_type": "video_view", "value": "1125"}
+            ],
+        }
+        metrics = parse_insights_row(row)
+        assert metrics.video_3s == 3750
+        assert metrics.hook_rate == pytest.approx(0.25)
+        assert metrics.thruplays == 1125
+        assert metrics.hold_rate == pytest.approx(0.30)
+        assert metrics.purchases == 3 and metrics.carts == 30
+
+    def test_realistic_static_row_has_no_hook_rate(self):
+        row = {
+            "spend": "250.00",
+            "impressions": "15000",
+            "outbound_clicks": "180",
+            "outbound_clicks_ctr": "0.012",
+            "actions": [
+                {"action_type": "omni_add_to_cart", "value": "28"},
+            ],
+        }
+        metrics = parse_insights_row(row)
+        assert metrics.video_3s is None
+        assert metrics.hook_rate is None
+        assert metrics.hook_rate != 0.0
+
+    def test_empty_action_array_is_absence_not_zero(self):
+        metrics = parse_insights_row(
+            {"impressions": "100", "video_3_sec_watched_actions": []}
+        )
+        assert metrics.video_3s is None
+
+    def test_legacy_scalar_fixture_form_still_parses(self):
+        import pytest
+
+        metrics = parse_insights_row(
+            {"impressions": "10000", "video_3s_views": "2500"}
+        )
+        assert metrics.hook_rate == pytest.approx(0.25)

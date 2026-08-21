@@ -103,8 +103,24 @@ class TestHardVetoes:
         assert any("missing" in v["reason"] for v in vetoes)
 
     def test_compliant_destination_passes(self, config):
+        # The example config sets require_tracking_params: true, so a
+        # compliant action carries its utm_* taxonomy (§9 C) as well as a
+        # policy-legal destination.
         action = Action(
             verb="ad.activate", target_id="a1",
-            params={"destination_url": "https://shop.example.com/products/alpha"},
+            params={
+                "destination_url": "https://shop.example.com/products/alpha",
+                "url_tags": "utm_source=meta&utm_campaign=proving",
+            },
         )
         assert hard_vetoes([action], guard_flagged=False, config=config) == []
+
+    def test_brand_vetoes_missing_tracking_params(self, config):
+        """require_tracking_params is enforced: a duplication without its
+        utm_* taxonomy is invisible downstream (§9 C) and is vetoed."""
+        action = Action(
+            verb="duplicate.post_id", target_id="a1",
+            params={"destination_url": "https://shop.example.com/products/alpha"},
+        )
+        vetoes = hard_vetoes([action], guard_flagged=False, config=config)
+        assert any("tracking" in v["reason"] for v in vetoes)

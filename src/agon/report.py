@@ -25,6 +25,21 @@ def _fmt_money(value: Optional[float]) -> str:
     return f"{value:,.2f}"
 
 
+def _round_floats(value: Any) -> Any:
+    """Round derived floats to 2dp for display — a threshold printed as
+    4.0043999999999995 is unreadable, and the exact value lives in the audit
+    JSONL where it belongs."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, float):
+        return round(value, 2)
+    if isinstance(value, dict):
+        return {k: _round_floats(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_round_floats(v) for v in value]
+    return value
+
+
 def _spend_header(result: RunResult, previous: Optional[dict[str, Any]]) -> str:
     """§8's reporting obligation — live daily spend by stage, delta since the
     previous run, at the very top of the report."""
@@ -52,10 +67,15 @@ def _spend_header(result: RunResult, previous: Optional[dict[str, Any]]) -> str:
 
 
 def _scorecard(result: RunResult) -> str:
-    """Per-stage scorecard: population, spend, return, decisions taken."""
+    """Per-stage scorecard: population, spend, return, decisions taken.
+
+    Iterates the ENRICHED ads (``result.ads``): the raw snapshot leaves
+    ``stage`` unset on the live adapter — the stage map is applied by the
+    pipeline — so a raw iteration prints the whole scorecard as UNMAPPED.
+    """
     lines = ["## Stage scorecard", ""]
     rows: dict[str, dict[str, Any]] = {}
-    for ad in result.snapshot.ads:
+    for ad in (result.ads or result.snapshot.ads):
         stage = ad.stage.value if ad.stage else "UNMAPPED"
         row = rows.setdefault(
             stage, {"ads": 0, "active": 0, "recent_spend": 0.0, "value": 0.0}
@@ -112,7 +132,8 @@ def _resolutions(result: RunResult) -> str:
         return "\n".join(lines)
     for resolution in decided:
         winner = resolution.winner
-        assert winner is not None
+        if winner is None:  # decided already filters; kept defensive, no assert
+            continue
         lines.append(f"### {winner.decision.value} — {resolution.ad.name} (`{resolution.ad.id}`)")
         for reason in winner.reasons:
             lines.append(f"- {reason}")
@@ -121,7 +142,7 @@ def _resolutions(result: RunResult) -> str:
                 f"- suppressed by precedence: **{winner.suppressed_by.value}** "
                 "(§12; recorded so the losing decision stays visible)"
             )
-        evidence = json.dumps(winner.evidence, default=str)
+        evidence = json.dumps(_round_floats(winner.evidence), default=str)
         lines.append(f"  - evidence: `{evidence}`")
         if resolution.losers:
             lines.append(
@@ -145,15 +166,21 @@ def render_report(
     parts.append(_spend_header(result, previous))
     parts += ["", _scorecard(result), "", _baselines(result), "", _resolutions(result)]
 
+    # An action downgraded to a proposal (envelope, ceiling, hard veto) is
+    # reported under Proposals — an Actions line that never executes is a
+    # report the operator stops trusting.
+    executable = [a for a in result.actions if a.authorized]
+    downgraded = [a for a in result.actions if not a.authorized]
+
     parts += ["", "## Actions"]
-    if result.actions:
-        parts += [_action_line(a) for a in result.actions]
+    if executable:
+        parts += [_action_line(a) for a in executable]
     else:
         parts.append(NONE_THIS_RUN)
 
     parts += ["", "## Proposals (never executed)"]
-    if result.proposals:
-        parts += [_action_line(a) for a in result.proposals]
+    if result.proposals or downgraded:
+        parts += [_action_line(a) for a in result.proposals + downgraded]
     else:
         parts.append(NONE_THIS_RUN)
 
@@ -217,7 +244,7 @@ def render_report(
             {"status": pf.status, "source_ad_id": pf.source_ad_id} for pf in result.preflights
         ],
     }
-    parts += ["", "```json", json.dumps(audit_block, default=str), "```", ""]
+    parts += ["", "```json", json.dumps(_round_floats(audit_block), default=str), "```", ""]
     return "\n".join(parts)
 
 

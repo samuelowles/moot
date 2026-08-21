@@ -3,11 +3,19 @@
 Read-only by construction: `plan` computes and prints but writes nothing;
 `apply` without ``--confirm-write`` prints the plan and exits 0 having
 dispatched nothing; ``AGON_READ_ONLY=1`` overrides every flag.
+
+The connection options (``--config``, ``--adapter``, ``--fixtures``,
+``--confirm-write``) are accepted at BOTH group and subcommand level — the
+invocations printed in docs/writes.md §5 and the README quickstart put them
+after the subcommand (``agon apply --config account.yaml --confirm-write``),
+and a subcommand value wins when both levels supply one.
 """
 
 from __future__ import annotations
 
 import logging
+from pathlib import Path
+from typing import Optional
 
 import click
 
@@ -22,13 +30,23 @@ from agon.writes import dispatch, previous_run_state, read_only_env
 
 logger = logging.getLogger(__name__)
 
+# Exit code for a run whose guards or circuit breakers tripped: no writes
+# happened, and cron must be able to tell that from a healthy run.
+GUARD_EXIT_CODE = 2
+
 
 def _build_adapter(meta: bool, fixtures: str | None, config):
     if not meta:
         if not fixtures:
-            raise click.UsageError(
-                "--fixtures PATH is required with --adapter fixture"
-            )
+            fallback = Path("tests/fixtures")
+            if fallback.exists():
+                # Developer convenience: the bundled demo fixtures, so the
+                # documented read-only commands run from a fresh checkout.
+                fixtures = str(fallback)
+            else:
+                raise click.UsageError(
+                    "--fixtures PATH is required with --adapter fixture"
+                )
         return FixtureAdapter(fixtures)
     # Imported lazily so fixture-only environments never import requests paths.
     from agon.adapters.meta import MetaAdapter
@@ -63,28 +81,103 @@ def main(
     ctx.obj.update(
         config=config,
         adapter=_build_adapter(adapter_name == "meta", fixtures, config),
+        adapter_is_meta=(adapter_name == "meta"),
+        fixtures=fixtures,
         confirm_write=not dry_run,
         audit_path=config.reporting.audit_log,
     )
+
+
+def _common_options(command):
+    """The connection options, also accepted on every subcommand.
+
+    docs/writes.md §5 and the README quickstart print them there; a
+    subcommand value overrides the group's when both are given.
+    """
+    decorators = (
+        click.option("--config", "config_path", default=None, type=click.Path(),
+                     help="Account YAML config. Overrides the group value."),
+        click.option("--adapter", "adapter_name", default=None,
+                     type=click.Choice(["meta", "fixture"]),
+                     help="Platform backend. Overrides the group value."),
+        click.option("--fixtures", "fixtures", default=None, type=click.Path(),
+                     help="Fixture directory for --adapter fixture. Overrides "
+                          "the group value."),
+        click.option("--dry-run/--confirm-write", "dry_run", default=None,
+                     help="Default is dry-run; --confirm-write dispatches. "
+                          "Overrides the group value."),
+    )
+    for decorator in decorators:
+        command = decorator(command)
+    return command
+
+
+def _apply_overrides(
+    ctx: click.Context,
+    config_path: Optional[str],
+    adapter_name: Optional[str],
+    fixtures: Optional[str],
+    dry_run: Optional[bool],
+) -> None:
+    """Subcommand-level options win over the group's (docs/writes.md §5)."""
+    obj = ctx.obj
+    if config_path is not None:
+        try:
+            obj["config"] = load_config(config_path)
+        except ConfigError as exc:
+            raise click.ClickException(str(exc)) from exc
+        obj["audit_path"] = obj["config"].reporting.audit_log
+    if config_path is not None or adapter_name is not None or fixtures is not None:
+        meta = (
+            (adapter_name == "meta")
+            if adapter_name is not None
+            else obj.get("adapter_is_meta", False)
+        )
+        fixture_path = fixtures if fixtures is not None else obj.get("fixtures")
+        obj["adapter"] = _build_adapter(meta, fixture_path, obj["config"])
+        obj["adapter_is_meta"] = meta
+        obj["fixtures"] = fixture_path
+    if dry_run is not None:
+        obj["confirm_write"] = not dry_run
 
 
 def _run(ctx: click.Context):
     return Pipeline(ctx.obj["adapter"], ctx.obj["config"]).run()
 
 
+def _guard_tripped(result) -> bool:
+    return result.guard.urgent or not result.guard.writes_allowed
+
+
 @main.command()
+@_common_options
 @click.pass_context
-def audit(ctx: click.Context) -> None:
+def audit(
+    ctx: click.Context,
+    config_path: Optional[str],
+    adapter_name: Optional[str],
+    fixtures: Optional[str],
+    dry_run: Optional[bool],
+) -> None:
     """Read-only snapshot: entities, baselines, guard state. Writes nothing."""
+    _apply_overrides(ctx, config_path, adapter_name, fixtures, dry_run)
     result = _run(ctx)
     previous = previous_run_state(ctx.obj["audit_path"])
     click.echo(render_report(result, dispatch=None, previous=previous))
 
 
 @main.command()
+@_common_options
 @click.pass_context
-def plan(ctx: click.Context) -> None:
+def plan(
+    ctx: click.Context,
+    config_path: Optional[str],
+    adapter_name: Optional[str],
+    fixtures: Optional[str],
+    dry_run: Optional[bool],
+) -> None:
     """Compute the action set and print the report. Writes nothing."""
+    _apply_overrides(ctx, config_path, adapter_name, fixtures, dry_run)
     result = _run(ctx)
     previous = previous_run_state(ctx.obj["audit_path"])
     click.echo(render_report(result, dispatch=None, previous=previous))
@@ -95,11 +188,22 @@ def plan(ctx: click.Context) -> None:
 
 
 @main.command()
+@_common_options
 @click.pass_context
-def apply(ctx: click.Context) -> None:
+def apply(
+    ctx: click.Context,
+    config_path: Optional[str],
+    adapter_name: Optional[str],
+    fixtures: Optional[str],
+    dry_run: Optional[bool],
+) -> None:
     """Dispatch the computed action set. Requires --confirm-write."""
+    _apply_overrides(ctx, config_path, adapter_name, fixtures, dry_run)
     result = _run(ctx)
     confirm_write = ctx.obj["confirm_write"]
+    # The §8 delta must compare against the PREVIOUS run — read it before
+    # dispatch appends this run's entries to the same audit log.
+    previous = previous_run_state(ctx.obj["audit_path"])
     everything = result.actions + result.proposals
     dispatch_result = dispatch(
         everything,
@@ -110,8 +214,16 @@ def apply(ctx: click.Context) -> None:
         audit_path=ctx.obj["audit_path"],
         daily_spend=result.daily_spend,
     )
-    previous = previous_run_state(ctx.obj["audit_path"])
     click.echo(render_report(result, dispatch=dispatch_result, previous=previous))
+    if _guard_tripped(result):
+        # No writes happened; cron must be able to tell this from a healthy
+        # run (docs/gates.md §10 — report-only, flag the gap).
+        click.echo("")
+        click.echo(
+            "GUARD TRIP: a guard or circuit breaker tripped — no writes this "
+            "run. Exiting 2 so schedulers can detect it."
+        )
+        ctx.exit(GUARD_EXIT_CODE)
     if not confirm_write:
         click.echo("")
         click.echo(
@@ -128,9 +240,17 @@ def apply(ctx: click.Context) -> None:
 
 
 @main.command()
+@_common_options
 @click.pass_context
-def baseline(ctx: click.Context) -> None:
+def baseline(
+    ctx: click.Context,
+    config_path: Optional[str],
+    adapter_name: Optional[str],
+    fixtures: Optional[str],
+    dry_run: Optional[bool],
+) -> None:
     """Per-market baselines: value, source, population (§3)."""
+    _apply_overrides(ctx, config_path, adapter_name, fixtures, dry_run)
     adapter = ctx.obj["adapter"]
     config = ctx.obj["config"]
     snapshot: EntitySnapshot = adapter.fetch_entities()
@@ -139,11 +259,21 @@ def baseline(ctx: click.Context) -> None:
 
 
 @main.command()
+@_common_options
 @click.argument("source_ad_id")
 @click.argument("copy_ad_id")
 @click.pass_context
-def verify(ctx: click.Context, source_ad_id: str, copy_ad_id: str) -> None:
+def verify(
+    ctx: click.Context,
+    config_path: Optional[str],
+    adapter_name: Optional[str],
+    fixtures: Optional[str],
+    dry_run: Optional[bool],
+    source_ad_id: str,
+    copy_ad_id: str,
+) -> None:
     """Confirm a duplicate kept its post ID (framework.md §4)."""
+    _apply_overrides(ctx, config_path, adapter_name, fixtures, dry_run)
     adapter = ctx.obj["adapter"]
     source = adapter.get_ad(source_ad_id)
     copy = adapter.get_ad(copy_ad_id)
@@ -161,9 +291,17 @@ def verify(ctx: click.Context, source_ad_id: str, copy_ad_id: str) -> None:
 
 
 @main.command()
+@_common_options
 @click.pass_context
-def debate(ctx: click.Context) -> None:
+def debate(
+    ctx: click.Context,
+    config_path: Optional[str],
+    adapter_name: Optional[str],
+    fixtures: Optional[str],
+    dry_run: Optional[bool],
+) -> None:
     """Print the contested-action briefs for the council to argue."""
+    _apply_overrides(ctx, config_path, adapter_name, fixtures, dry_run)
     result = _run(ctx)
     actions = result.actions + result.proposals
     contested_actions = contested(actions)

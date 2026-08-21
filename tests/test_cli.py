@@ -179,3 +179,177 @@ class TestReport:
         previous = {"daily_spend": {k: v * 0.5 for k, v in run.daily_spend.items()}}
         text = render_report(run, previous=previous)
         assert "Δ since last run" in text
+
+
+class TestDocumentedInvocations:
+    """The exact command strings printed in docs/writes.md §5 and the README
+    quickstart must run — the connection options are accepted at subcommand
+    level, and a subcommand value wins when both levels supply one."""
+
+    def _demo_dir(self, tmp_path):
+        import shutil
+
+        shutil.copytree(FIXTURES, tmp_path / "tests" / "fixtures")
+        (tmp_path / "examples").mkdir()
+        shutil.copy(CONFIG_PATH, tmp_path / "account.yaml")
+        shutil.copy(CONFIG_PATH, tmp_path / "examples" / "config.example.yaml")
+        return tmp_path
+
+    @pytest.mark.parametrize(
+        "argv",
+        [
+            ["audit", "--config", "account.yaml"],
+            ["plan", "--config", "account.yaml"],
+            ["debate", "--config", "account.yaml"],
+            ["apply", "--config", "account.yaml"],
+            ["apply", "--config", "account.yaml", "--confirm-write"],
+        ],
+    )
+    def test_writes_md_section5_commands_run(self, runner, tmp_path, monkeypatch, argv):
+        monkeypatch.chdir(self._demo_dir(tmp_path))
+        monkeypatch.delenv("AGON_READ_ONLY", raising=False)
+        result = runner.invoke(main, argv)
+        assert result.exit_code == 0, result.output
+
+    def test_readme_quickstart_fixture_plan(self, runner, tmp_path, monkeypatch):
+        monkeypatch.chdir(self._demo_dir(tmp_path))
+        result = runner.invoke(
+            main,
+            ["plan", "--adapter", "fixture", "--fixtures", "tests/fixtures",
+             "--config", "examples/config.example.yaml"],
+        )
+        assert result.exit_code == 0, result.output
+        assert "# Agon run report" in result.output
+
+    def test_readme_quickstart_readonly_commands(self, runner, tmp_path, monkeypatch):
+        """audit/plan/debate exactly as the README prints them, with the
+        read-only belt on."""
+        monkeypatch.chdir(self._demo_dir(tmp_path))
+        monkeypatch.setenv("AGON_READ_ONLY", "1")
+        for command in ("audit", "plan", "debate"):
+            result = runner.invoke(main, [command, "--config", "account.yaml"])
+            assert result.exit_code == 0, (command, result.output)
+
+    def test_subcommand_option_overrides_group(self, runner, tmp_path, monkeypatch):
+        """Group loads the example config; the subcommand's --config wins.
+        The subcommand file carries a broken target — only loading IT can
+        produce the target error."""
+        import yaml
+
+        monkeypatch.chdir(self._demo_dir(tmp_path))
+        payload = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
+        payload["target"] = 0  # invalid — ConfigError names the key
+        (tmp_path / "account.yaml").write_text(yaml.safe_dump(payload), encoding="utf-8")
+        result = runner.invoke(
+            main,
+            ["--config", str(CONFIG_PATH), "baseline", "--config", "account.yaml"],
+        )
+        assert result.exit_code != 0
+        assert "target" in result.output
+
+    def test_group_option_still_used_when_subcommand_silent(self, runner, tmp_path,
+                                                            monkeypatch):
+        """No subcommand --config: the group's value applies (here: the
+        broken file, proving it was the one loaded)."""
+        monkeypatch.chdir(self._demo_dir(tmp_path))
+        import yaml
+
+        payload = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
+        payload["target"] = 0
+        (tmp_path / "account.yaml").write_text(yaml.safe_dump(payload), encoding="utf-8")
+        result = runner.invoke(main, ["--config", "account.yaml", "baseline"])
+        assert result.exit_code != 0
+        assert "target" in result.output
+
+
+class TestGuardTripExitCode:
+    def test_guard_trip_exits_two(self, runner, tmp_path, monkeypatch):
+        """A tripped breaker is exit 2, not 0 — cron must detect it."""
+        monkeypatch.chdir(tmp_path)
+        args = ["--config", str(CONFIG_PATH), "--adapter", "fixture",
+                "--fixtures", str(FIXTURES / "incomplete")]
+        result = runner.invoke(main, args + ["apply"])
+        assert result.exit_code == 2
+        assert "GUARD TRIP" in result.output
+
+    def test_healthy_run_exits_zero(self, runner, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(main, ARGS + ["apply"])
+        assert result.exit_code == 0
+
+
+class TestDeltaOrdering:
+    def test_delta_compared_against_previous_run_not_itself(self, runner, tmp_path,
+                                                            monkeypatch):
+        """The §8 delta must compare against the PREVIOUS run's audit header.
+        Rewrite that header's spend and the next report must show the shift;
+        reading it after dispatch would compare the run against itself."""
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.delenv("AGON_READ_ONLY", raising=False)
+        first = runner.invoke(main, ARGS + ["apply"])
+        assert first.exit_code == 0, first.output
+        audit = tmp_path / "reports" / "write-audit.jsonl"
+        lines = audit.read_text(encoding="utf-8").strip().splitlines()
+        entry = json.loads(lines[-1])
+        entry["daily_spend"] = {"SCALE": 1.0}
+        lines[-1] = json.dumps(entry)
+        audit.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        second = runner.invoke(main, ARGS + ["apply"])
+        assert second.exit_code == 0, second.output
+        # SCALE daily spend is (800 + 500) / 7 ≈ 185.71; from 1.00 that is
+        # +184.71 — impossible if the run were compared against itself.
+        assert "+184.71" in second.output
+
+
+class TestReportFixes:
+    def test_scorecard_reads_enriched_ads(self, config, adapter):
+        """The stage map is applied by the pipeline; the scorecard must read
+        the enriched ads or the whole live-adapter scorecard prints UNMAPPED."""
+        from dataclasses import replace
+
+        from agon.guards import GuardVerdict
+        from agon.pipeline import Pipeline, RunResult
+
+        run = Pipeline(adapter, config).run()
+        raw = replace(run.snapshot, ads=[replace(a, stage=None) for a in run.snapshot.ads])
+        staged = RunResult(
+            config=config, snapshot=raw, baselines=run.baselines,
+            resolutions=run.resolutions, actions=run.actions,
+            proposals=run.proposals, watchlist=run.watchlist,
+            already_dark=run.already_dark, campaign_results=run.campaign_results,
+            guard=GuardVerdict(writes_allowed=True), daily_spend=run.daily_spend,
+            ads=run.ads,
+        )
+        text = render_report(staged)
+        assert "UNMAPPED" not in text.split("## Stage scorecard")[1].split("##")[0]
+        assert "PROVING" in text
+
+    def test_downgraded_actions_printed_under_proposals(self, config, adapter):
+        from agon.guards import GuardVerdict
+        from agon.pipeline import Pipeline, RunResult
+
+        run = Pipeline(adapter, config).run()
+        downgraded = [a.as_proposal("proposed only (§5 Path B ceiling)")
+                      for a in run.actions[:1]]
+        result = RunResult(
+            config=config, snapshot=run.snapshot, baselines=run.baselines,
+            resolutions=run.resolutions, actions=downgraded,
+            proposals=run.proposals, watchlist=run.watchlist,
+            already_dark=run.already_dark, campaign_results=run.campaign_results,
+            guard=GuardVerdict(writes_allowed=True), daily_spend=run.daily_spend,
+            ads=run.ads,
+        )
+        text = render_report(result)
+        actions_section = text.split("## Actions")[1].split("## Proposals")[0]
+        proposals_section = text.split("## Proposals")[1].split("## Watchlist")[0]
+        assert "None this run" in actions_section
+        assert downgraded[0].verb in proposals_section
+
+    def test_derived_floats_rounded_to_two_decimals(self, config, adapter):
+        from agon.guards import GuardVerdict
+        from agon.pipeline import Pipeline
+
+        run = Pipeline(adapter, config).run()
+        text = render_report(run)
+        assert "4.0043999999999995" not in text
+        assert "4.0" in text or "4.00" in text

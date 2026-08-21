@@ -97,6 +97,12 @@ gates:
     min_spend: 150
     cost_ratio: 1.30           # × the ad's OWN trailing cost per cart
     return_ratio: 0.60         # × the ad's OWN trailing return
+  demote:
+    # §7 has its own keys (demote_min_spend / demote_min_lifetime_purchases /
+    # demote_min_age); each defaults to the fatigue value above when omitted.
+    min_spend: 150
+    min_lifetime_purchases: 3
+    min_age_days: 7
   budget:
     step_pct: 25               # hard-capped at 30 regardless of what is set here
     down_pct: 30

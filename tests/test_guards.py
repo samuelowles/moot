@@ -95,3 +95,37 @@ class TestPipelineWiring:
         snapshot = fixture_adapter("incomplete").fetch_entities()
         assert snapshot.pull_complete is False
         assert snapshot.errors == ["page 2 of /ads timed out"]
+
+
+class TestSpendUnknown:
+    """§10: unreported spend is a partial-data signal. It is excluded from
+    the anomaly-share denominator (never ``or 0``-ed in) and a large unknown
+    share is itself a data-quality trip."""
+
+    def _snapshot(self, **kw):
+        base = dict(
+            pull_complete=True, account_recent_return=4.0,
+            pipeline_recent_spend=1000.0, paused_recent_spend=100.0,
+        )
+        base.update(kw)
+        return RunSnapshot(**base)
+
+    def test_unknown_above_a_fifth_of_known_trips(self, config):
+        result = verdict([], self._snapshot(spend_unknown=300.0, spend_unknown_ads=3), config)
+        assert result.writes_allowed is False
+        assert result.urgent is True
+        assert any("no recent spend" in r for r in result.reasons)
+
+    def test_unknown_exactly_a_fifth_does_not_trip(self, config):
+        # Strictly greater than 20% of known spend — 20% exactly is fine.
+        result = verdict([], self._snapshot(spend_unknown=200.0, spend_unknown_ads=2), config)
+        assert result.writes_allowed is True
+
+    def test_small_unknown_share_allows_writes(self, config):
+        result = verdict([], self._snapshot(spend_unknown=100.0, spend_unknown_ads=1), config)
+        assert result.writes_allowed is True
+
+    def test_unknown_surfaced_in_evidence(self, config):
+        result = verdict([], self._snapshot(spend_unknown=300.0, spend_unknown_ads=3), config)
+        assert result.evidence["spend_unknown"] == 300.0
+        assert result.evidence["spend_unknown_ads"] == 3

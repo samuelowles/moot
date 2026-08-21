@@ -169,3 +169,30 @@ class TestAuctionCheck:
         )
         assert ad.recent.hook_rate is None
         assert auction_check(ad) is not None  # hook clause skipped, not failed
+
+
+class TestDemoteOwnFloors:
+    """§7 reads gates.demote — a spend of 160 clears the §6 fatigue floor
+    (150) but not a configured demote floor of 200."""
+
+    def _ad(self):
+        return make_ad(
+            "dm", stage=Stage.SCALE, campaign_id="120000000000004",
+            creative=CreativeType.VIDEO, age_days=20,
+            recent=Metrics(spend=160.0, carts=20, purchases=3,
+                           purchase_value=640.0, cpm=10.0),
+            trailing=Metrics(spend=800.0, carts=80, purchases=9,
+                             purchase_value=3200.0, cpm=10.0, outbound_ctr=0.015),
+            lifetime=Metrics(spend=1200.0, purchases=9),
+        )
+
+    def test_demote_floor_of_200_blocks_the_demotion(self, config):
+        from dataclasses import replace as dc_replace
+
+        from agon.config import DemoteGates
+
+        narrow = dc_replace(config, demote=DemoteGates(min_spend=200.0))
+        assert DemoteGate().evaluate(self._ad(), make_ctx(narrow)) == []
+
+    def test_default_floor_of_150_still_demotes(self, config):
+        assert DemoteGate().evaluate(self._ad(), make_ctx(config))

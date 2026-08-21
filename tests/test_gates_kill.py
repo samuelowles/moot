@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 from conftest import make_ad, make_ctx
 
+from agon.baselines import MarketBaseline
 from agon.gates.kill import KillGate
 from agon.models import CreativeType, Decision, Metrics
 
@@ -139,9 +140,31 @@ class TestLimbC2:
 
 class TestLimbD:
     def test_fires_at_concept_level_zero_carts(self, config):
+        # carts=0 is a RECORDED zero (§11.2) — the limb kills on it.
         dead_a = make_ad(
             "d1", market="US", post_id="p_dead", age_days=12,
-            recent=Metrics(spend=30.0, outbound_clicks=60),
+            recent=Metrics(spend=30.0, outbound_clicks=60, carts=0),
+            trailing=Metrics(spend=80.0, carts=10),
+            lifetime=Metrics(spend=80.0),
+        )
+        dead_b = make_ad(
+            "d2", market="US", post_id="p_dead", age_days=12,
+            recent=Metrics(spend=30.0, outbound_clicks=60, carts=0),
+            trailing=Metrics(spend=80.0, carts=10),
+            lifetime=Metrics(spend=80.0),
+        )
+        results = kill(dead_a, make_ctx(config, market="US", ads=(dead_a, dead_b)))
+        assert [r.evidence["limb"] for r in results] == ["D"]
+        assert results[0].evidence["aggregate_outbound_clicks"] == 120
+        assert dead_b.id in results[0].evidence["concept_ad_ids"]
+
+    def test_absent_carts_everywhere_do_not_fire(self, config):
+        """§11.2: absence is not evidence. A concept whose every ad reports
+        carts as ABSENT (None, not zero) is unreadable on click quality —
+        limb D must not synthesise the zero it kills on."""
+        dead_a = make_ad(
+            "d1", market="US", post_id="p_dead", age_days=12,
+            recent=Metrics(spend=30.0, outbound_clicks=60),  # no carts key at all
             trailing=Metrics(spend=80.0, carts=10),
             lifetime=Metrics(spend=80.0),
         )
@@ -151,10 +174,25 @@ class TestLimbD:
             trailing=Metrics(spend=80.0, carts=10),
             lifetime=Metrics(spend=80.0),
         )
+        assert kill(dead_a, make_ctx(config, market="US", ads=(dead_a, dead_b))) == []
+
+    def test_recorded_zero_plus_absent_still_aggregates(self, config):
+        """Mixed evidence: one recorded zero is enough for the limb to read."""
+        dead_a = make_ad(
+            "d1", market="US", post_id="p_dead", age_days=12,
+            recent=Metrics(spend=30.0, outbound_clicks=60, carts=0),
+            trailing=Metrics(spend=80.0, carts=10),
+            lifetime=Metrics(spend=80.0),
+        )
+        dead_b = make_ad(
+            "d2", market="US", post_id="p_dead", age_days=12,
+            recent=Metrics(spend=30.0, outbound_clicks=60),  # absent
+            trailing=Metrics(spend=80.0, carts=10),
+            lifetime=Metrics(spend=80.0),
+        )
         results = kill(dead_a, make_ctx(config, market="US", ads=(dead_a, dead_b)))
         assert [r.evidence["limb"] for r in results] == ["D"]
-        assert results[0].evidence["aggregate_outbound_clicks"] == 120
-        assert dead_b.id in results[0].evidence["concept_ad_ids"]
+        assert results[0].evidence["ads_without_recorded_carts"] == 1
 
     def test_fires_on_cart_rate_below_floor(self, config):
         # 150 clicks, 1 cart → 0.67% < 1.5% floor.
@@ -225,3 +263,40 @@ class TestStaticHookImmunity:
         assert static.recent.hook_rate is None
         assert static.trailing.hook_rate is None
         assert kill(static, make_ctx(config)) == []
+
+
+class TestLimbDCartRateBand:
+    """§3.2: limb D uses the market's computed cart-rate band (its low edge)
+    when one exists, falling back to the configured floor only when the band
+    is unavailable."""
+
+    def _ctx(self, config, band, ads):
+        baseline = MarketBaseline(
+            market="NZ", value=10.0, source="computed", cart_rate_band=band
+        )
+        return make_ctx(config, market="NZ", ads=ads, baselines={"NZ": baseline})
+
+    def _ad(self):
+        return make_ad(
+            "d1", market="NZ", post_id="p_band", age_days=12,
+            recent=Metrics(spend=60.0, outbound_clicks=150, carts=3),
+            trailing=Metrics(spend=200.0, carts=8, purchases=1),
+            lifetime=Metrics(spend=200.0, purchases=1),
+        )
+
+    def test_band_low_used_when_available(self, config):
+        # cart rate 0.02 is above the configured 0.015 floor but below the
+        # band's low edge of 0.05 — the band must judge it dead.
+        ad = self._ad()
+        ctx = self._ctx(config, band=(0.05, 0.10), ads=(ad,))
+        results = KillGate().evaluate(ad, ctx)
+        assert [r.evidence["limb"] for r in results] == ["D"]
+        assert results[0].evidence["cart_rate_floor"] == pytest.approx(0.05)
+        assert results[0].evidence["cart_rate_floor_source"] == "computed_band_low"
+
+    def test_configured_floor_used_without_band(self, config):
+        # A fallback/seeded baseline carries no band: the configured floor
+        # applies (0.02 ≥ 0.015 → healthy, no kill).
+        ad = self._ad()
+        ctx = self._ctx(config, band=None, ads=(ad,))
+        assert KillGate().evaluate(ad, ctx) == []

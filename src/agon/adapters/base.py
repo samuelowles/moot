@@ -71,6 +71,12 @@ class AdPlatformAdapter(Protocol):
     def get_ad(self, ad_id: str) -> Ad:
         """One ad, with its creative-resolved post ID."""
 
+    def get_adset(self, adset_id: str) -> AdSet:
+        """One ad set — the mechanism-9 read-back for ad-set status writes."""
+
+    def get_campaign(self, campaign_id: str) -> Campaign:
+        """One campaign — the mechanism-9 read-back for budget writes."""
+
     def list_ads_in_campaign(self, campaign_id: str) -> list[Ad]:
         """EVERY ad in a campaign — all ad sets, all statuses, paginated to
         exhaustion. This is what §9 A idempotency enumerates against."""
@@ -96,11 +102,29 @@ class AdPlatformAdapter(Protocol):
         name: str,
         status: str = "PAUSED",
         url_tags: str | None = None,
+        post_id: str | None = None,
         *,
         dry_run: bool,
         validate_only: bool,
     ) -> str:
-        """POST /{act}/ads — born PAUSED, activated only after verification."""
+        """POST /{act}/ads — born PAUSED, activated only after verification.
+        ``post_id`` threads the source post through backends (like the
+        fixture) that register the created ad for its own read-back."""
+
+    def duplicate_post(
+        self,
+        source_ad: Ad,
+        act_id: str,
+        page_id: str,
+        dest_adset_id: str,
+        name: str,
+        *,
+        dry_run: bool,
+        validate_only: bool,
+    ) -> str:
+        """The framework.md §4 chain: creative from the post → ad (PAUSED) →
+        re-read and verify the post ID survived. Raises
+        :class:`PostIdMismatchError` when it did not."""
 
     def set_status(
         self,

@@ -168,7 +168,10 @@ def hard_vetoes(
 
     1. The risk archetype vetoes any action set the anomaly guard flags.
     2. The brand archetype vetoes any action whose destination URL violates
-       ``config.policy.destination``.
+       ``config.policy.destination`` — forbidden/required patterns, plus the
+       ``require_tracking_params`` check: a duplication that carries no
+       ``utm_*`` url_tags is invisible to every downstream analytics surface
+       (§9 C) and is vetoed when the policy demands tracking parameters.
     """
     vetoes: list[dict[str, Any]] = []
     if guard_flagged:
@@ -195,15 +198,24 @@ def hard_vetoes(
             for pattern in policy.require_patterns
             if pattern and pattern not in destination
         ]
+        reason = (
+            f"destination {destination} violates policy "
+            f"(forbidden: {violated}, missing: {missing})"
+        )
+        if policy.require_tracking_params:
+            tags = action.params.get("url_tags")
+            if not isinstance(tags, str) or "utm_" not in tags:
+                reason += (
+                    "; the action carries no utm_* url_tags while "
+                    "policy.destination.require_tracking_params is on (§9 C)"
+                )
+                violated = violated or ["require_tracking_params"]
         if violated or missing:
             vetoes.append(
                 {
                     "by": "brand",
                     "scope": action.target_id,
-                    "reason": (
-                        f"destination {destination} violates policy "
-                        f"(forbidden: {violated}, missing: {missing})"
-                    ),
+                    "reason": reason,
                 }
             )
     return vetoes

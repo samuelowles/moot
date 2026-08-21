@@ -96,17 +96,9 @@ def compute_baseline(
     candidates = [a for a in adsets if _candidate(a, market, config.baseline.min_spend)]
 
     if len(candidates) < min_population:
-        if market_cfg is not None and market_cfg.baseline_fallback is not None:
-            return MarketBaseline(
-                market=market,
-                value=float(market_cfg.baseline_fallback),
-                source="fallback",
-                population=len(candidates),
-                evidence={
-                    "reason": f"population {len(candidates)} < {min_population}; "
-                    "using configured baseline_fallback",
-                },
-            )
+        # §3: a market with BOTH seed_from and baseline_fallback seeds — a
+        # seeded market runs kill gates only, so it cannot graduate on a bar
+        # it has not earned. The fallback would silently re-enable promotion.
         if market_cfg is not None and market_cfg.seed_from is not None:
             analogue = market_cfg.seed_from
             if seed_value is None:
@@ -122,9 +114,21 @@ def compute_baseline(
                 seeded_from=analogue,
                 evidence={
                     "reason": f"population {len(candidates)} < {min_population}; "
-                    f"no fallback configured; seeded from analogue {analogue}. "
-                    "Kill gates only this run (docs/gates.md §3).",
+                    f"seeded from analogue {analogue} (seed_from outranks a "
+                    "configured baseline_fallback). Kill gates only this run "
+                    "(docs/gates.md §3).",
                     "seed_value": seed_value,
+                },
+            )
+        if market_cfg is not None and market_cfg.baseline_fallback is not None:
+            return MarketBaseline(
+                market=market,
+                value=float(market_cfg.baseline_fallback),
+                source="fallback",
+                population=len(candidates),
+                evidence={
+                    "reason": f"population {len(candidates)} < {min_population}; "
+                    "using configured baseline_fallback",
                 },
             )
         # Structurally impossible after config validation (every market has a

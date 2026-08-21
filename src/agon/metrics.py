@@ -106,6 +106,31 @@ def _first_present(row: dict[str, Any], *keys: str) -> Any:
     return None
 
 
+def action_array_total(value: Any) -> Optional[int]:
+    """Total a dedicated video-action field that arrives as a sparse ACTION
+    ARRAY (§11.2, §11.5).
+
+    ``video_3_sec_watched_actions`` and ``video_thruplay_watched_actions``
+    come back as ``[{"action_type": "video_view", "value": "3750"}]`` on the
+    live Graph API — NOT as scalars, so :func:`to_int` alone yields ``None``
+    and every live ad reads STATIC. Fixture rows may carry the bare scalar
+    form; both shapes total here, and a missing field stays ``None`` (absent
+    for static creative — never a synthesised zero).
+    """
+    if value is None:
+        return None
+    if isinstance(value, (list, tuple)):
+        total: Optional[int] = None
+        for entry in value:
+            if not isinstance(entry, dict):
+                continue
+            count = to_int(entry.get("value"))
+            if count is not None:
+                total = count if total is None else total + count
+        return total
+    return to_int(value)
+
+
 def parse_insights_row(row: dict[str, Any]) -> Metrics:
     """Build a :class:`Metrics` from one platform insights row.
 
@@ -127,6 +152,14 @@ def parse_insights_row(row: dict[str, Any]) -> Metrics:
         purchases=extract_action(row.get("actions"), PURCHASE_KEYS),
         purchase_value=extract_action_value(row.get("action_values"), VALUE_KEYS),
         carts=extract_action(row.get("actions"), CART_KEYS),
-        video_3s=to_int(_first_present(row, "video_3s_views", "video_p25_watched_actions")),
-        thruplays=to_int(row.get("video_thruplay_watched_actions")),
+        # video_3_sec_watched_actions is the live Graph field (an ACTION
+        # ARRAY); video_3s_views remains accepted for fixture rows. Absence
+        # stays None — static creative has no video actions (§11.5).
+        video_3s=action_array_total(
+            _first_present(
+                row, "video_3_sec_watched_actions", "video_3s_views",
+                "video_p25_watched_actions",
+            )
+        ),
+        thruplays=action_array_total(row.get("video_thruplay_watched_actions")),
     )

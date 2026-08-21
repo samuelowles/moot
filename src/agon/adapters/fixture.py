@@ -164,6 +164,38 @@ class FixtureAdapter:
                 )
         raise KeyError(f"fixture has no ad {ad_id!r}")
 
+    def get_adset(self, adset_id: str) -> AdSet:
+        """One ad set — the mechanism-9 read-back for ad-set status writes."""
+        for s in self._data.get("adsets", []):
+            if str(s.get("id")) == adset_id:
+                return AdSet(
+                    id=str(s["id"]),
+                    name=str(s.get("name", "")),
+                    status=s.get("status"),
+                    effective_status=s.get("effective_status") or s.get("status"),
+                    campaign_id=s.get("campaign_id"),
+                    market=s.get("market"),
+                    stage=_stage(s.get("stage")),
+                    daily_budget=s.get("daily_budget"),
+                )
+        raise KeyError(f"fixture has no ad set {adset_id!r}")
+
+    def get_campaign(self, campaign_id: str) -> Campaign:
+        """One campaign — the mechanism-9 read-back for budget writes."""
+        for c in self._data.get("campaigns", []):
+            if str(c.get("id")) == campaign_id:
+                return Campaign(
+                    id=str(c["id"]),
+                    name=str(c.get("name", "")),
+                    status=c.get("status"),
+                    effective_status=c.get("effective_status") or c.get("status"),
+                    account_id=c.get("account_id"),
+                    market=c.get("market"),
+                    stage=_stage(c.get("stage")),
+                    daily_budget=c.get("daily_budget"),
+                )
+        raise KeyError(f"fixture has no campaign {campaign_id!r}")
+
     def list_ads_in_campaign(self, campaign_id: str) -> list[Ad]:
         """Every ad in the campaign — all ad sets, all statuses (§9 A)."""
         matching = [

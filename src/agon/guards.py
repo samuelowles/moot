@@ -16,6 +16,11 @@ from typing import Any, Optional
 from agon.config import Config
 from agon.models import Action
 
+# §10: unreported recent spend above this share of the KNOWN pipeline spend is
+# a data-quality trip — the anomaly guard is least likely to fire exactly when
+# the data is partial, so partial data itself must trip.
+SPEND_UNKNOWN_SHARE_LIMIT = 0.20
+
 
 @dataclass(frozen=True)
 class RunSnapshot:
@@ -24,7 +29,11 @@ class RunSnapshot:
     ``pull_complete`` is False on any failed, partial or inconsistently
     paginated read (§10 breaker 2). ``pipeline_recent_spend`` is the recent
     spend of the delivering pipeline; ``paused_recent_spend`` is the recent
-    spend of the entities the computed action set would pause.
+    spend of the entities the computed action set would pause. Ads whose
+    recent spend is UNREPORTED are excluded from both of those figures and
+    carried as ``spend_unknown`` (an estimated currency figure) and
+    ``spend_unknown_ads`` (a count) — unreported spend must make the guards
+    MORE suspicious, never read as a smaller paused share (§10).
     """
 
     pull_complete: bool = True
@@ -32,6 +41,8 @@ class RunSnapshot:
     account_recent_return: Optional[float] = None
     pipeline_recent_spend: float = 0.0
     paused_recent_spend: float = 0.0
+    spend_unknown: float = 0.0
+    spend_unknown_ads: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -40,6 +51,8 @@ class RunSnapshot:
             "account_recent_return": self.account_recent_return,
             "pipeline_recent_spend": self.pipeline_recent_spend,
             "paused_recent_spend": self.paused_recent_spend,
+            "spend_unknown": self.spend_unknown,
+            "spend_unknown_ads": self.spend_unknown_ads,
         }
 
 
@@ -95,8 +108,10 @@ def evaluate_guards(
 
     # Anomaly guard — if this run's pauses would darken more than
     # anomaly_guard_pct of pipeline spend, execute NOTHING and report URGENT.
-    # Denominator: the delivering pipeline's recent spend (the live footprint
-    # this run acts on). Trip is >, not >=, and only with real spend.
+    # Denominator: the delivering pipeline's KNOWN recent spend (the live
+    # footprint this run acts on) — unreported spend is never ``or 0``-ed in,
+    # which would make a mass pause read artificially small exactly when the
+    # data is partial. Trip is >, not >=, and only with real spend.
     guard_pct = config.guards.anomaly_guard_pct
     share = (
         snapshot.paused_recent_spend / snapshot.pipeline_recent_spend
@@ -105,12 +120,31 @@ def evaluate_guards(
     )
     evidence["paused_spend_share"] = share
     evidence["anomaly_guard_pct"] = guard_pct
+    evidence["spend_unknown"] = snapshot.spend_unknown
+    evidence["spend_unknown_ads"] = snapshot.spend_unknown_ads
     if share > guard_pct / 100.0:
         reasons.append(
             f"ANOMALY GUARD: this action set would pause {share:.0%} of "
             f"pipeline recent spend (> {guard_pct:.0f}%). A mass-kill signal "
             "indicates bad data more often than bad ads — executing nothing, "
             "reporting URGENT (§10)."
+        )
+        urgent = True
+
+    # Data-quality trip: unreported spend is itself a partial-data signal.
+    # When the estimated unknown recent spend exceeds 20% of the KNOWN
+    # pipeline spend, the footprint this run acts on is largely unverifiable
+    # — the same class of gap as breaker 2, so no writes this run.
+    if (
+        snapshot.pipeline_recent_spend > 0
+        and snapshot.spend_unknown > SPEND_UNKNOWN_SHARE_LIMIT * snapshot.pipeline_recent_spend
+    ):
+        reasons.append(
+            f"CIRCUIT BREAKER (data): {snapshot.spend_unknown_ads} delivering "
+            f"ad(s) report no recent spend — an estimated "
+            f"{snapshot.spend_unknown:.2f} exceeds 20% of the known pipeline "
+            f"spend {snapshot.pipeline_recent_spend:.2f}. Partial spend data "
+            "cannot authorize writes (§10)."
         )
         urgent = True
 

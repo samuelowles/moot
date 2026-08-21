@@ -140,6 +140,17 @@ class FatigueGates:
 
 
 @dataclass(frozen=True)
+class DemoteGates:
+    """§7 thresholds. gates.md names demote_min_spend /
+    demote_min_lifetime_purchases / demote_min_age — DEMOTE has its own keys;
+    each defaults to the §6 fatigue value it previously borrowed."""
+
+    min_spend: float = 150.0
+    min_lifetime_purchases: int = 3
+    min_age_days: int = 7
+
+
+@dataclass(frozen=True)
 class BudgetGates:
     step_pct: float = 25.0  # hard-capped at +30 in the write layer — §8
     down_pct: float = 30.0
@@ -210,6 +221,7 @@ class Config:
     graduate: GraduateGates = field(default_factory=GraduateGates)
     kill: KillGates = field(default_factory=KillGates)
     fatigue: FatigueGates = field(default_factory=FatigueGates)
+    demote: DemoteGates = field(default_factory=DemoteGates)
     budget: BudgetGates = field(default_factory=BudgetGates)
     baseline: BaselineGates = field(default_factory=BaselineGates)
     guards: GuardsConfig = field(default_factory=GuardsConfig)
@@ -451,15 +463,21 @@ def load_config(path: str | Path) -> Config:
     ratios.update({k: float(v) for k, v in ratio_overrides.items()})
 
     guards_raw = _require_mapping(raw.get("guards", {}), "guards")
+    breaker_override = guards_raw.get("breaker_return_floor_ratio")
     guards = GuardsConfig(
         anomaly_guard_pct=float(guards_raw.get("anomaly_guard_pct", 50.0)),
         breaker_return_floor_ratio=float(
-            guards_raw.get("breaker_return_floor_ratio", DEFAULT_RATIOS["breaker_floor"])
+            breaker_override
+            if breaker_override is not None
+            else DEFAULT_RATIOS["breaker_floor"]
         ),
     )
-    # The breaker ratio is config-addressable under `guards:` (§10), so it wins
-    # over the generic default when set.
-    ratios["breaker_floor"] = guards.breaker_return_floor_ratio
+    # The breaker ratio is config-addressable under `guards:` (§10), so it
+    # wins over `gates.ratios.breaker_floor` — but ONLY when that guards key
+    # is actually present; an explicit `gates.ratios.breaker_floor` override
+    # must survive an unconfigured guards block.
+    if breaker_override is not None:
+        ratios["breaker_floor"] = guards.breaker_return_floor_ratio
 
     margin_raw = _require_mapping(raw.get("margin", {}), "margin")
     margin = MarginConfig(
@@ -471,6 +489,38 @@ def load_config(path: str | Path) -> Config:
     envelope = EnvelopeConfig(
         authorized=frozenset(str(v) for v in envelope_raw.get("authorized", [])),
         forbidden=frozenset(str(v) for v in envelope_raw.get("forbidden", [])),
+    )
+
+    # docs/writes.md §4: the pixel is set explicitly on every ad set Agon
+    # creates — a named safety property. An empty pixel id would be posted
+    # verbatim, so the config refuses to load without one.
+    pixel = _require_mapping(raw.get("pixel", {}), "pixel")
+    pixel_id = str(pixel.get("id", "")).strip()
+    if not pixel_id:
+        raise ConfigError(
+            "pixel.id: must be a non-empty id (e.g. '400000000000001') — every "
+            "ad set Agon creates sets the pixel explicitly, and an empty one "
+            "silently optimises against the wrong event (docs/writes.md §4)"
+        )
+
+    # §7 keys default to the §6 fatigue values they previously borrowed.
+    fatigue = _dataclass_from(FatigueGates, gates.get("fatigue"), "gates.fatigue")
+    demote_raw = gates.get("demote")
+    if demote_raw is not None:
+        demote_raw = _require_mapping(demote_raw, "gates.demote")
+    known_demote = set(DemoteGates.__dataclass_fields__)
+    unknown_demote = set(demote_raw or {}) - known_demote
+    if unknown_demote:
+        raise ConfigError(
+            f"gates.demote: unknown key(s) {sorted(unknown_demote)}; accepted: "
+            f"{sorted(known_demote)}"
+        )
+    demote = DemoteGates(
+        min_spend=float((demote_raw or {}).get("min_spend", fatigue.min_spend)),
+        min_lifetime_purchases=int(
+            (demote_raw or {}).get("min_lifetime_purchases", fatigue.min_lifetime_purchases)
+        ),
+        min_age_days=int((demote_raw or {}).get("min_age_days", fatigue.min_age_days)),
     )
 
     policy_raw = _require_mapping(raw.get("policy", {}), "policy")
@@ -491,11 +541,12 @@ def load_config(path: str | Path) -> Config:
         ),
         markets=markets,
         stages=stages,
-        pixel=_require_mapping(raw.get("pixel", {}), "pixel"),
+        pixel=pixel,
         gates_ratios=ratios,
         graduate=_dataclass_from(GraduateGates, gates.get("graduate"), "gates.graduate"),
         kill=_dataclass_from(KillGates, gates.get("kill"), "gates.kill"),
-        fatigue=_dataclass_from(FatigueGates, gates.get("fatigue"), "gates.fatigue"),
+        fatigue=fatigue,
+        demote=demote,
         budget=_dataclass_from(BudgetGates, gates.get("budget"), "gates.budget"),
         baseline=_dataclass_from(BaselineGates, gates.get("baseline"), "gates.baseline"),
         guards=guards,

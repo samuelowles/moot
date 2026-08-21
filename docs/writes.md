@@ -41,8 +41,9 @@ investigate anything.
 
 **3. Server-side validation before every write.** Each dispatch first issues the
 identical call with the platform's `validate_only` execution option, which runs
-full server-side validation and creates nothing. Two consecutive validation
-failures on one operation skip it, log it, and continue the run.
+full server-side validation and creates nothing. A failed validation aborts
+that one operation — logged as a FAILED outcome in the audit — and the run
+continues with the remaining actions.
 
 **4. Everything is born paused.** Every created entity — ad, ad set, campaign —
 is created `PAUSED`. Activation is always a separate, separately-verified

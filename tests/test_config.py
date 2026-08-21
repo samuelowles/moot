@@ -156,3 +156,76 @@ class TestStageMapLookups:
         assert not example_config.envelope.is_authorized("campaign.create")
         assert not example_config.envelope.is_authorized("delete")
         assert example_config.envelope.is_authorized("ad.pause")
+
+
+class TestBreakerRatioPrecedence:
+    """guards.breaker_return_floor_ratio wins only when the key is present;
+    an explicit gates.ratios.breaker_floor override must survive an
+    unconfigured guards block."""
+
+    def test_ratios_breaker_floor_survives_without_guards_key(self, tmp_path):
+        payload = base_payload()
+        del payload["guards"]["breaker_return_floor_ratio"]
+        payload["gates"]["ratios"] = {"breaker_floor": 0.50}
+        config = load_config(write_config(tmp_path, payload))
+        assert config.threshold("breaker_floor") == pytest.approx(0.50 * 5.64)
+
+    def test_guards_key_wins_when_both_present(self, tmp_path):
+        payload = base_payload()
+        payload["gates"]["ratios"] = {"breaker_floor": 0.50}
+        payload["guards"]["breaker_return_floor_ratio"] = 0.45
+        config = load_config(write_config(tmp_path, payload))
+        assert config.threshold("breaker_floor") == pytest.approx(0.45 * 5.64)
+
+
+class TestDemoteGates:
+    """§7 names demote_min_spend / demote_min_lifetime_purchases /
+    demote_min_age — DEMOTE has its own keys, defaulting to the §6 values."""
+
+    def test_demote_defaults_mirror_fatigue(self, tmp_path):
+        payload = base_payload()
+        del payload["gates"]["demote"]  # omit §7 keys → fatigue values apply
+        payload["gates"]["fatigue"] = {"min_spend": 175.0, "min_age_days": 9,
+                                       "min_lifetime_purchases": 4}
+        config = load_config(write_config(tmp_path, payload))
+        assert config.demote.min_spend == 175.0
+        assert config.demote.min_age_days == 9
+        assert config.demote.min_lifetime_purchases == 4
+
+    def test_demote_keys_override_independently(self, tmp_path):
+        payload = base_payload()
+        payload["gates"]["demote"] = {"min_spend": 200}
+        config = load_config(write_config(tmp_path, payload))
+        assert config.demote.min_spend == 200
+        assert config.demote.min_age_days == config.fatigue.min_age_days == 7
+
+    def test_unknown_demote_key_rejected(self, tmp_path):
+        payload = base_payload()
+        payload["gates"]["demote"] = {"min_spned": 200}  # typo'd threshold
+        with pytest.raises(ConfigError, match="gates.demote"):
+            load_config(write_config(tmp_path, payload))
+
+    def test_example_config_carries_demote_block(self, example_config):
+        assert example_config.demote.min_spend == 150.0
+        assert example_config.demote.min_lifetime_purchases == 3
+        assert example_config.demote.min_age_days == 7
+
+
+class TestPixelValidation:
+    """docs/writes.md §4: the explicit pixel is a named safety property — a
+    config without one refuses to load rather than post pixel_id=''."""
+
+    def test_missing_pixel_id_rejected(self, tmp_path):
+        payload = base_payload()
+        del payload["pixel"]["id"]
+        with pytest.raises(ConfigError, match="pixel"):
+            load_config(write_config(tmp_path, payload))
+
+    def test_empty_pixel_id_rejected(self, tmp_path):
+        payload = base_payload()
+        payload["pixel"]["id"] = ""
+        with pytest.raises(ConfigError, match="pixel.id"):
+            load_config(write_config(tmp_path, payload))
+
+    def test_example_config_pixel_loads(self, example_config):
+        assert example_config.pixel["id"] == "400000000000001"

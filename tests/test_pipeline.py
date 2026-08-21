@@ -4,8 +4,11 @@ feeding, actions and proposals."""
 from __future__ import annotations
 
 import pytest
-from conftest import RUN_NOW
+import yaml
+from conftest import CONFIG_PATH, FIXTURES, RUN_NOW
 
+from agon.adapters.fixture import FixtureAdapter
+from agon.config import load_config
 from agon.models import Decision
 from agon.pipeline import Pipeline
 
@@ -162,3 +165,120 @@ class TestPreflightIntegration:
         # "Do not pause the source" — framework.md §2.1, restated.
         for ad_id in ("ad_graduate_a", "ad_static_graduate"):
             assert "ad.pause" not in [a.verb for a in actions_for(run, ad_id)]
+
+
+# --- review fixes: within-run idempotency, destination veto, sequencing ------
+
+
+class TestWithinRunIdempotency:
+    """§9 A only sees pre-run state; two ads sharing one post (gates.md §4 D
+    exists because one creative runs across many ad sets) must produce ONE
+    duplicate and ONE cohort ad set in a single run."""
+
+    @pytest.fixture()
+    def shared_run(self, config):
+        return Pipeline(FixtureAdapter(FIXTURES / "shared_post"), config).run(now=RUN_NOW)
+
+    def test_one_duplicate_action(self, shared_run):
+        duplicates = [a for a in shared_run.actions if a.verb == "duplicate.post_id"]
+        assert len(duplicates) == 1
+        assert duplicates[0].params["post_id"] == "p_shared"
+
+    def test_one_cohort_adset(self, shared_run):
+        cohorts = [a for a in shared_run.actions if a.verb == "adset.create_cohort"]
+        assert len(cohorts) == 1
+        assert cohorts[0].params["name"] == "2026-08 winners"
+
+    def test_second_ad_reported_not_duplicated(self, shared_run):
+        already = [
+            p for p in shared_run.proposals
+            if "already scheduled" in p.rationale and p.target_id == "ad_win_2"
+        ]
+        assert len(already) == 1
+        assert already[0].authorized is False
+
+    def test_both_ads_graduated(self, shared_run):
+        winners = {
+            r.ad.id: r.winner.decision
+            for r in shared_run.resolutions
+            if r.ad.id in ("ad_win_1", "ad_win_2")
+        }
+        assert all(d is Decision.GRADUATE for d in winners.values())
+
+
+class TestDestinationVeto:
+    """The brand guardian's hard veto is wired into the run: a graduation
+    whose landing page contains /collections/ is downgraded to a proposal."""
+
+    def test_collections_destination_downgraded_to_proposal(self, config):
+        run = Pipeline(
+            FixtureAdapter(FIXTURES / "destination_veto"), config
+        ).run(now=RUN_NOW)
+        assert not [a for a in run.actions if a.verb == "duplicate.post_id"]
+        vetoed = [p for p in run.proposals if "HARD VETO" in p.rationale]
+        assert vetoed
+        assert "/collections/" in vetoed[0].rationale
+        assert vetoed[0].authorized is False
+
+    def test_compliant_destination_still_executes(self, config):
+        run = Pipeline(FixtureAdapter(FIXTURES / "shared_post"), config).run(now=RUN_NOW)
+        assert [a for a in run.actions if a.verb == "duplicate.post_id"]
+        assert not [p for p in run.proposals if "HARD VETO" in p.rationale]
+
+
+class TestRetirementSequencingWiring:
+    """The §6/§7 pause carries requires_verified_duplicate_of so the write
+    layer can hold it until the copy verifies; the Reserve copy itself is
+    activated after verify (the pause requires an ACTIVE copy)."""
+
+    def test_retirement_pause_declares_its_dependency(self, run):
+        for ad_id in ("ad_fatigue", "ad_demote"):
+            pauses = [
+                a for a in run.actions
+                if a.verb == "ad.pause" and a.target_id == ad_id
+            ]
+            assert pauses, f"expected a retirement pause for {ad_id}"
+            assert pauses[0].params["requires_verified_duplicate_of"] == ad_id
+
+    def test_reserve_duplicate_activates_after_verify(self, run):
+        duplicates = [
+            a for a in run.actions
+            if a.verb == "duplicate.post_id" and a.target_id == "ad_fatigue"
+        ]
+        assert duplicates
+        assert duplicates[0].params["activate_after_verify"] is True
+        assert duplicates[0].params["destination_stage"] == "RESERVE"
+
+    def test_kill_pause_has_no_dependency(self, run):
+        kill_pauses = [
+            a for a in run.actions
+            if a.verb == "ad.pause" and a.target_id == "ad_kill_c1"
+        ]
+        assert kill_pauses
+        assert "requires_verified_duplicate_of" not in kill_pauses[0].params
+
+    def test_duplicate_carries_destination_url_for_the_veto(self, run):
+        duplicates = [a for a in run.actions if a.verb == "duplicate.post_id"]
+        assert duplicates
+        assert all("destination_url" in a.params for a in duplicates)
+
+
+class TestMissingDestinationPage:
+    """An unresolvable destination_page_id is a proposal, never a crash and
+    never a fresh-post duplicate (§9 B spirit)."""
+
+    def test_no_page_id_proposes_only(self, tmp_path):
+        payload = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
+        del payload["markets"]["NZ"]["destination_page_id"]
+        config_path = tmp_path / "config.yaml"
+        config_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+        config = load_config(config_path)
+        run = Pipeline(FixtureAdapter(FIXTURES), config).run(now=RUN_NOW)
+        assert not [
+            a for a in run.actions
+            if a.verb == "duplicate.post_id" and a.target_id == "ad_graduate_a"
+        ]
+        blocked = [
+            p for p in run.proposals if p.params.get("blocked") == "no-destination-page"
+        ]
+        assert any(p.target_id == "ad_graduate_a" for p in blocked)

@@ -16,6 +16,7 @@ from typing import Any, Optional
 from agon.adapters.base import AdPlatformAdapter, EntitySnapshot
 from agon.baselines import MarketBaseline, compute_baselines
 from agon.config import Config
+from agon.council import hard_vetoes
 from agon.duplication import preflight
 from agon.gates.base import GateContext, auction_check
 from agon.gates.budget import BudgetGate
@@ -77,6 +78,9 @@ class RunResult:
     guard: GuardVerdict
     daily_spend: dict[str, float]  # live daily spend by stage (§8 report duty)
     preflights: list[Any] = field(default_factory=list)
+    # The enriched ads (market/stage derived through the stage map) — the raw
+    # snapshot has stage unset on live adapters, so the scorecard reads these.
+    ads: list[Ad] = field(default_factory=list)
 
 
 def _enrich(entity: Any, config: Config) -> Any:
@@ -146,6 +150,12 @@ class Pipeline:
         self.adapter = adapter
         self.config = config
         self.preflights: list[Any] = []
+        # §9 A within-run idempotency: pre-flight only sees pre-run state, so
+        # the pipeline tracks what THIS run has already scheduled — two ads
+        # sharing a post (the normal case, gates.md §4 D) must not produce
+        # duplicate copies or duplicate cohort ad sets in one run.
+        self._seen_duplicate_keys: set[tuple[str, str]] = set()  # (campaign, post)
+        self._seen_cohort_adsets: set[tuple[str, str]] = set()  # (campaign, name)
         self.kill = KillGate()
         self.graduate = GraduateGate()
         self.fatigue = FatigueGate()
@@ -199,14 +209,111 @@ class Pipeline:
 
     # --- actions -------------------------------------------------------------------
 
-    def _pause_action(self, ad: Ad, result: GateResult, rationale: str) -> Action:
+    def _pause_action(
+        self,
+        ad: Ad,
+        result: GateResult,
+        rationale: str,
+        requires_verified_duplicate_of: Optional[str] = None,
+    ) -> Action:
+        params: dict[str, Any] = {
+            "entity_type": "ad",
+            "status": "PAUSED",
+            "ad_name": ad.name,
+        }
+        if requires_verified_duplicate_of is not None:
+            # §6/§7: the pause follows a copy that verifies — the write layer
+            # holds it until the duplication verifies ACTIVE.
+            params["requires_verified_duplicate_of"] = requires_verified_duplicate_of
         return Action(
             verb="ad.pause",
             target_id=ad.id,
-            params={"entity_type": "ad", "status": "PAUSED", "ad_name": ad.name},
+            params=params,
             authorized=self.config.envelope.is_authorized("ad.pause"),
             rationale=rationale,
             source_gate=result.decision,
+        )
+
+    def _cohort_action(
+        self, checks: Any, source_decision: Decision
+    ) -> Optional[Action]:
+        """The §5 cohort-ad-set creation, once per (campaign, name) per run."""
+        name = checks.destination_adset_to_create or ""
+        campaign_id = checks.destination_campaign_id or ""
+        key = (campaign_id, name)
+        if key in self._seen_cohort_adsets:
+            return None  # this run already scheduled its creation
+        self._seen_cohort_adsets.add(key)
+        return Action(
+            verb="adset.create_cohort",
+            target_id=campaign_id,
+            params={
+                "name": name,
+                "campaign_id": campaign_id,
+                "pixel_id": self.config.pixel.get("id", ""),
+                "born": "PAUSED",
+            },
+            authorized=self.config.envelope.is_authorized("adset.create_cohort"),
+            rationale="destination ad set absent — created PAUSED (§5 action)",
+            source_gate=source_decision,
+        )
+
+    def _duplicate_action(
+        self,
+        ad: Ad,
+        checks: Any,
+        source_decision: Decision,
+        destination_stage: Stage,
+        *,
+        rationale: str,
+    ) -> Optional[Action]:
+        """One duplicate per (destination campaign, post id) per run (§9 A).
+
+        Returns None when this run already scheduled a copy of the post — the
+        caller reports an already-present proposal instead. The source ad's
+        destination_url travels in the params so the council's brand veto can
+        judge it mechanically (docs/agents.md, council.hard_vetoes). Every
+        copy is born PAUSED and activated only after it verifies (§5) — the
+        Reserve copy too: §6/§7's source pause follows a copy that verifies
+        ACTIVE, so the copy must actually reach ACTIVE.
+        """
+        campaign_id = checks.destination_campaign_id or ""
+        key = (campaign_id, ad.post_id or "")
+        if key in self._seen_duplicate_keys:
+            return None
+        self._seen_duplicate_keys.add(key)
+        market_cfg = self.config.markets.get(ad.market or "") if ad.market else None
+        page_id = market_cfg.destination_page_id if market_cfg is not None else None
+        params: dict[str, Any] = {
+            "destination_campaign_id": campaign_id,
+            "destination_adset_id": checks.destination_adset_id,
+            "destination_adset_name": checks.destination_adset_to_create,
+            "destination_stage": destination_stage.value,
+            "post_id": ad.post_id,
+            "url_tags": ad.url_tags,
+            "page_id": page_id,
+            "destination_url": ad.destination_url,
+            "activate_after_verify": True,
+        }
+        return Action(
+            verb="duplicate.post_id",
+            target_id=ad.id,
+            params=params,
+            authorized=self.config.envelope.is_authorized("duplicate.post_id"),
+            rationale=rationale,
+            source_gate=source_decision,
+        )
+
+    def _blocked_proposal(
+        self, ad: Ad, decision: Decision, reason: str
+    ) -> Action:
+        return Action(
+            verb="duplicate.post_id",
+            target_id=ad.id,
+            params={"blocked": "already-present", "post_id": ad.post_id},
+            authorized=False,
+            rationale=reason,
+            source_gate=decision,
         )
 
     def _retirement_actions(
@@ -220,52 +327,60 @@ class Pipeline:
         )
         self.preflights.append(checks)
         if checks.status == "ok":
+            market_cfg = self.config.markets.get(ad.market or "") if ad.market else None
+            page_id = market_cfg.destination_page_id if market_cfg is not None else None
+            if not page_id:
+                # No page → the creative cannot reference the post; propose,
+                # never mint a fresh one (§9 B spirit).
+                return (
+                    [],
+                    [
+                        Action(
+                            verb="duplicate.post_id",
+                            target_id=ad.id,
+                            params={"blocked": "no-destination-page", "post_id": ad.post_id},
+                            authorized=False,
+                            rationale=(
+                                f"market {ad.market!r} has no destination_page_id — "
+                                "duplicating without it would mint a fresh post; "
+                                "retirement held (source keeps delivering)."
+                            ),
+                            source_gate=result.decision,
+                        )
+                    ],
+                )
             actions: list[Action] = []
             if checks.destination_adset_to_create:
-                actions.append(
-                    Action(
-                        verb="adset.create_cohort",
-                        target_id=checks.destination_campaign_id or "",
-                        params={
-                            "name": checks.destination_adset_to_create,
-                            "campaign_id": checks.destination_campaign_id,
-                            "pixel_id": self.config.pixel.get("id", ""),
-                            "born": "PAUSED",
-                        },
-                        authorized=self.config.envelope.is_authorized("adset.create_cohort"),
-                        rationale="destination ad set absent — created PAUSED (§5 action)",
-                        source_gate=result.decision,
-                    )
-                )
-            actions.append(
-                Action(
-                    verb="duplicate.post_id",
-                    target_id=ad.id,
-                    params={
-                        "destination_campaign_id": checks.destination_campaign_id,
-                        "destination_adset_id": checks.destination_adset_id,
-                        "destination_adset_name": checks.destination_adset_to_create,
-                        "destination_stage": Stage.RESERVE.value,
-                        "post_id": ad.post_id,
-                        "url_tags": ad.url_tags,
-                        "page_id": (
-                            self.config.markets.get(ad.market or "").destination_page_id
-                            if ad.market
-                            else None
-                        ),
-                    },
-                    authorized=self.config.envelope.is_authorized("duplicate.post_id"),
-                    rationale=result.reasons[0] if result.reasons else "retirement",
-                    source_gate=result.decision,
-                )
+                cohort = self._cohort_action(checks, result.decision)
+                if cohort is not None:
+                    actions.append(cohort)
+            duplicate = self._duplicate_action(
+                ad, checks, result.decision, Stage.RESERVE,
+                rationale=result.reasons[0] if result.reasons else "retirement",
             )
+            if duplicate is None:
+                # §9 A within-run: this run already scheduled a copy of the
+                # post into this campaign — report, do not duplicate again.
+                return (
+                    [],
+                    [
+                        self._blocked_proposal(
+                            ad, result.decision,
+                            f"post {ad.post_id} already scheduled into campaign "
+                            f"{checks.destination_campaign_id} earlier this run "
+                            "(§9 A within-run idempotency).",
+                        )
+                    ],
+                )
+            actions.append(duplicate)
             # §6: pause the source AFTER the copy verifies ACTIVE. The write
-            # layer sequences this; here the intent is recorded in order.
+            # layer enforces the ordering via requires_verified_duplicate_of.
             actions.append(
                 self._pause_action(
                     ad, result,
                     f"{result.decision.value}: pause source after the Reserve "
                     "copy verifies (§6/§7 action).",
+                    requires_verified_duplicate_of=ad.id,
                 )
             )
             return actions, []
@@ -304,46 +419,48 @@ class Pipeline:
         self.preflights.append(checks)
         proposed_only = bool(result.evidence.get("proposed_only"))
         if checks.status == "ok":
+            market_cfg = self.config.markets.get(ad.market or "") if ad.market else None
+            page_id = market_cfg.destination_page_id if market_cfg is not None else None
+            if not page_id:
+                return (
+                    [],
+                    [
+                        Action(
+                            verb="duplicate.post_id",
+                            target_id=ad.id,
+                            params={"blocked": "no-destination-page", "post_id": ad.post_id},
+                            authorized=False,
+                            rationale=(
+                                f"market {ad.market!r} has no destination_page_id — "
+                                "duplicating without it would mint a fresh post."
+                            ),
+                            source_gate=Decision.GRADUATE,
+                        )
+                    ],
+                )
             actions: list[Action] = []
             if checks.destination_adset_to_create:
-                actions.append(
-                    Action(
-                        verb="adset.create_cohort",
-                        target_id=checks.destination_campaign_id or "",
-                        params={
-                            "name": checks.destination_adset_to_create,
-                            "campaign_id": checks.destination_campaign_id,
-                            "pixel_id": self.config.pixel.get("id", ""),
-                            "born": "PAUSED",
-                        },
-                        authorized=self.config.envelope.is_authorized("adset.create_cohort"),
-                        rationale="cohort ad set absent — created PAUSED (§5 action)",
-                        source_gate=Decision.GRADUATE,
-                    )
-                )
-            actions.append(
-                Action(
-                    verb="duplicate.post_id",
-                    target_id=ad.id,
-                    params={
-                        "destination_campaign_id": checks.destination_campaign_id,
-                        "destination_adset_id": checks.destination_adset_id,
-                        "destination_adset_name": checks.destination_adset_to_create,
-                        "destination_stage": Stage.SCALE.value,
-                        "post_id": ad.post_id,
-                        "url_tags": ad.url_tags,
-                        "page_id": (
-                            self.config.markets.get(ad.market or "").destination_page_id
-                            if ad.market
-                            else None
-                        ),
-                        "activate_after_verify": True,
-                    },
-                    authorized=self.config.envelope.is_authorized("duplicate.post_id"),
-                    rationale=result.reasons[0] if result.reasons else "graduation",
-                    source_gate=Decision.GRADUATE,
-                )
+                cohort = self._cohort_action(checks, Decision.GRADUATE)
+                if cohort is not None:
+                    actions.append(cohort)
+            duplicate = self._duplicate_action(
+                ad, checks, Decision.GRADUATE, Stage.SCALE,
+                rationale=result.reasons[0] if result.reasons else "graduation",
             )
+            if duplicate is None:
+                # §9 A within-run: one copy of this post per campaign per run.
+                return (
+                    [],
+                    [
+                        self._blocked_proposal(
+                            ad, Decision.GRADUATE,
+                            f"post {ad.post_id} already scheduled into campaign "
+                            f"{checks.destination_campaign_id} earlier this run "
+                            "(§9 A within-run idempotency).",
+                        )
+                    ],
+                )
+            actions.append(duplicate)
             if proposed_only:
                 # §5 Path B note: past the 1.80 × baseline ceiling a graduation
                 # is proposed, not executed.
@@ -497,6 +614,8 @@ class Pipeline:
         }
 
         self.preflights: list[Any] = []
+        self._seen_duplicate_keys = set()
+        self._seen_cohort_adsets = set()
         actions: list[Action] = []
         proposals: list[Action] = []
         watchlist: list[GateResult] = []
@@ -559,16 +678,32 @@ class Pipeline:
                 # reported on the watchlist, never raised.
                 watchlist.append(result)
 
-        # §10 — guards judge the data the actions were computed from.
+        # §10 — guards judge the data the actions were computed from. Ads
+        # whose recent spend is UNREPORTED are excluded from both sides of
+        # the anomaly share (an ``or 0`` denominator would make a mass pause
+        # read artificially small exactly when the data is partial) and are
+        # surfaced as a spend_unknown figure the guards can trip on.
         paused_ids = {
             a.target_id for a in actions if a.verb in ("ad.pause", "adset.pause")
         }
+        known_spend = [
+            a for a in delivering
+            if a.recent is not None and a.recent.spend is not None
+        ]
+        unknown_spend_ads = [
+            a for a in delivering
+            if a.recent is None or a.recent.spend is None
+        ]
         paused_spend = sum(
-            a.recent.spend or 0.0
-            for a in delivering
-            if a.id in paused_ids and a.recent is not None
+            a.recent.spend for a in known_spend if a.id in paused_ids
         )
-        pipeline_spend = sum(a.recent.spend or 0.0 for a in delivering if a.recent)
+        pipeline_spend = sum(a.recent.spend for a in known_spend)
+        spend_unknown = 0.0
+        if unknown_spend_ads and known_spend:
+            # Estimate only, and only for the guard: unknown-spend ads count
+            # at the mean of their known neighbours. A guard may act on the
+            # suspicion of missing data; no gate ever reads this figure.
+            spend_unknown = (pipeline_spend / len(known_spend)) * len(unknown_spend_ads)
         guard = evaluate_guards(
             actions,
             RunSnapshot(
@@ -577,9 +712,32 @@ class Pipeline:
                 account_recent_return=_account_return(snapshot),
                 pipeline_recent_spend=pipeline_spend,
                 paused_recent_spend=paused_spend,
+                spend_unknown=spend_unknown,
+                spend_unknown_ads=len(unknown_spend_ads),
             ),
             config,
         )
+
+        # The brand guardian's destination veto is mechanical (council.py,
+        # docs/agents.md): a duplicate whose landing page violates
+        # policy.destination is downgraded to a proposal carrying the veto
+        # reason — never executed, never silently dropped.
+        vetoes = hard_vetoes(actions, guard_flagged=not guard.writes_allowed, config=config)
+        if vetoes:
+            vetoed_scopes = {v["scope"] for v in vetoes}
+            kept: list[Action] = []
+            for a in actions:
+                if "destination_url" in a.params and a.target_id in vetoed_scopes:
+                    veto = next(v for v in vetoes if v["scope"] == a.target_id)
+                    proposals.append(
+                        a.as_proposal(
+                            f"HARD VETO ({veto['by']}): {veto['reason']} — "
+                            "downgraded to a proposal"
+                        )
+                    )
+                else:
+                    kept.append(a)
+            actions = kept
 
         return RunResult(
             config=config,
@@ -594,6 +752,7 @@ class Pipeline:
             guard=guard,
             daily_spend=_daily_spend(campaigns, config),
             preflights=list(self.preflights),
+            ads=ads,
         )
 
 

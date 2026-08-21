@@ -1,0 +1,174 @@
+{
+  "account_id": "act_100000000000001",
+  "pull_complete": true,
+  "campaigns": [
+    {
+      "id": "120000000000001",
+      "name": "NZ - Proving Ground",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "market": "NZ",
+      "stage": "proving",
+      "daily_budget": 50,
+      "insights": {
+        "recent": {
+          "spend": "400.00",
+          "action_values": [
+            {"action_type": "omni_purchase_value", "value": "2000.00"}
+          ]
+        },
+        "trailing": {
+          "spend": "1500.00",
+          "action_values": [
+            {"action_type": "omni_purchase_value", "value": "7500.00"}
+          ]
+        }
+      }
+    },
+    {
+      "id": "120000000000004",
+      "name": "NZ - Scale",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "market": "NZ",
+      "stage": "scale",
+      "daily_budget": 400,
+      "insights": {
+        "recent": {
+          "spend": "100.00",
+          "action_values": [
+            {"action_type": "omni_purchase_value", "value": "380.00"}
+          ]
+        }
+      }
+    }
+  ],
+  "adsets": [
+    {
+      "id": "as_p1",
+      "name": "NZ concept one",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "campaign_id": "120000000000001",
+      "market": "NZ",
+      "stage": "proving",
+      "daily_budget": 20,
+      "insights": {
+        "trailing": {
+          "spend": "300.00",
+          "actions": [
+            {"action_type": "omni_add_to_cart", "value": "15"}
+          ],
+          "action_values": [
+            {"action_type": "omni_purchase_value", "value": "2000.00"}
+          ]
+        }
+      }
+    },
+    {
+      "id": "as_p2",
+      "name": "NZ concept two",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "campaign_id": "120000000000001",
+      "market": "NZ",
+      "stage": "proving",
+      "daily_budget": 20,
+      "insights": {
+        "trailing": {
+          "spend": "280.00",
+          "actions": [
+            {"action_type": "omni_add_to_cart", "value": "14"}
+          ],
+          "action_values": [
+            {"action_type": "omni_purchase_value", "value": "1800.00"}
+          ]
+        }
+      }
+    }
+  ],
+  "ads": [
+    {
+      "id": "ad_win_1",
+      "name": "NZ-20260809-IMG-winner-one",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "adset_id": "as_p1",
+      "campaign_id": "120000000000001",
+      "market": "NZ",
+      "stage": "proving",
+      "creative_type": "STATIC",
+      "post_id": "p_shared",
+      "url_tags": "utm_source=meta&utm_campaign=proving",
+      "destination_url": "https://shop.example.com/products/alpha",
+      "age_days": 12,
+      "insights": {
+        "recent": {
+          "spend": "60.00",
+          "actions": [
+            {"action_type": "omni_purchase", "value": "1"}
+          ],
+          "action_values": [
+            {"action_type": "omni_purchase_value", "value": "400.00"}
+          ]
+        },
+        "trailing": {
+          "spend": "250.00",
+          "outbound_clicks": "210",
+          "outbound_clicks_ctr": "0.012",
+          "actions": [
+            {"action_type": "omni_purchase", "value": "4"},
+            {"action_type": "omni_add_to_cart", "value": "21"}
+          ]
+        },
+        "lifetime": {
+          "spend": "500.00",
+          "actions": [
+            {"action_type": "omni_purchase", "value": "6"}
+          ]
+        }
+      }
+    },
+    {
+      "id": "ad_win_2",
+      "name": "NZ-20260809-IMG-winner-two",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "adset_id": "as_p2",
+      "campaign_id": "120000000000001",
+      "market": "NZ",
+      "stage": "proving",
+      "creative_type": "STATIC",
+      "post_id": "p_shared",
+      "url_tags": "utm_source=meta&utm_campaign=proving",
+      "destination_url": "https://shop.example.com/products/beta",
+      "age_days": 12,
+      "insights": {
+        "recent": {
+          "spend": "55.00",
+          "actions": [
+            {"action_type": "omni_purchase", "value": "1"}
+          ],
+          "action_values": [
+            {"action_type": "omni_purchase_value", "value": "380.00"}
+          ]
+        },
+        "trailing": {
+          "spend": "260.00",
+          "outbound_clicks": "220",
+          "outbound_clicks_ctr": "0.013",
+          "actions": [
+            {"action_type": "omni_purchase", "value": "4"},
+            {"action_type": "omni_add_to_cart", "value": "22"}
+          ]
+        },
+        "lifetime": {
+          "spend": "480.00",
+          "actions": [
+            {"action_type": "omni_purchase", "value": "5"}
+          ]
+        }
+      }
+    }
+  ]
+}
