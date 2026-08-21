@@ -1,0 +1,155 @@
+# Agon account configuration — worked example.
+#
+# This describes a fictional demo account ("Northwind Supply") with two markets
+# and a full three-stage ladder. Copy it, change the IDs, set your target.
+#
+# Every threshold below is optional. Omit it and the documented default applies;
+# performance thresholds default to their ratio of `target` (see docs/gates.md §2).
+
+account:
+  name: Northwind Supply
+  platform: meta
+  # Agon refuses to write to any account not listed here. This is enforced in
+  # the adapter, not just the config layer.
+  allowed_account_ids:
+    - act_100000000000001
+  currency: NZD
+  timezone: Pacific/Auckland
+
+# The single performance constant. Every threshold in docs/gates.md §2 derives
+# from this unless explicitly overridden below.
+target: 5.64
+
+margin:
+  # Used to sanity-check the derived kill floors at config load. Agon warns when
+  # the floors are inconsistent with this figure; it never silently corrects them.
+  gross_margin_pct: 65
+  # Applied when reporting platform-return as though it were true return.
+  platform_haircut_pct: 30
+
+windows:
+  recent_days: 7
+  trailing_days: 30
+  attribution: 7d_click
+
+markets:
+  NZ:
+    baseline_fallback: 24.90      # cost per cart, used until the market has population
+    destination_page_id: "100000000000001"
+  AU:
+    baseline_fallback: 24.30
+    destination_page_id: "100000000000001"
+  US:
+    # A new market. No baseline population yet, so it seeds from an analogue and
+    # runs kill gates only — no graduations. See docs/gates.md §3.
+    seed_from: AU
+    destination_page_id: "100000000000001"
+
+# The stage map. Every campaign the pipeline may touch must appear here; the
+# duplication pre-flight resolves a source ad's market and stage through it, and
+# anything unmapped is reported rather than acted on.
+stages:
+  proving:
+    NZ: { campaign_id: "120000000000001" }
+    AU: { campaign_id: "120000000000002" }
+    US: { campaign_id: "120000000000003" }
+  scale:
+    NZ: { campaign_id: "120000000000004", cohort_pattern: "{yyyy}-{mm} winners" }
+    AU: { campaign_id: "120000000000005", cohort_pattern: "{yyyy}-{mm} winners" }
+    # US has no scale campaign — a known structural gap. US winners have nowhere
+    # to graduate to, so they are reported as proposals. Building the campaign is
+    # a new-campaign action and therefore outside the envelope.
+  reserve:
+    NZ: { campaign_id: "120000000000006", adset_name: "Retired winners" }
+    AU: { campaign_id: "120000000000007", adset_name: "Retired winners" }
+  retarget:
+    NZ: { campaign_id: "120000000000008" }
+    AU: { campaign_id: "120000000000009" }
+
+pixel:
+  # Set explicitly on every ad set Agon creates. Never rely on a connector
+  # default — a mis-inherited pixel silently optimises against the wrong event
+  # and the damage is invisible for weeks.
+  id: "400000000000001"
+  custom_event_type: PURCHASE
+
+# Optional threshold overrides. Delete this block to run pure defaults.
+gates:
+  graduate:
+    min_spend: 200
+    min_purchases: 3
+    min_ctr: 0.01
+    min_hook: 0.20             # video only; skipped for static creative
+    efficiency_max: 0.85       # × baseline
+    return_cpc_ceiling: 1.80   # × baseline
+    speculative_enabled: true
+    speculative_return_min: 8.0
+  kill:
+    a_min_spend: 30
+    b_min_spend: 60
+    c_min_spend: 150
+    cost_max: 1.30             # × baseline
+    starved_max_spend: 5
+    cart_rate_floor: 0.015
+  fatigue:
+    min_lifetime_purchases: 3
+    min_age_days: 7
+    min_spend: 150
+    cost_ratio: 1.30           # × the ad's OWN trailing cost per cart
+    return_ratio: 0.60         # × the ad's OWN trailing return
+  budget:
+    step_pct: 25               # hard-capped at 30 regardless of what is set here
+    down_pct: 30
+    up_min_spend: 100
+    down_min_spend: 200
+  baseline:
+    min_spend: 100
+    min_population: 4
+
+guards:
+  anomaly_guard_pct: 50
+  # A breaker trip means no writes at all for the run.
+  breaker_return_floor_ratio: 0.35   # × target
+
+# What the autopilot may do without per-change confirmation. Anything not listed
+# is downgraded to a proposal and flagged. See docs/writes.md.
+envelope:
+  authorized:
+    - ad.pause
+    - ad.activate
+    - adset.pause
+    - adset.activate
+    - campaign.pause
+    - duplicate.post_id            # proving→scale, proving→reserve, scale→reserve
+    - adset.create_cohort          # born PAUSED
+    - campaign.budget_increase     # scale stage only, ≤ +30% per step
+    - campaign.budget_decrease
+    - reserve.reactivate
+  forbidden:
+    - campaign.create
+    - adset.targeting_change
+    - adset.budget_increase        # every stage, always
+    - reserve.scale_up
+    - spend_cap.change
+    - delete                       # no delete verb exists in the codebase at all
+
+policy:
+  # Destination policy. A graduation whose landing page violates this is blocked
+  # and flagged rather than silently promoted.
+  destination:
+    require_patterns:
+      - "/products/"
+    forbid_patterns:
+      - "/collections/"
+    require_tracking_params: true
+  naming:
+    # Ads Agon creates must match. Duplicates append the configured suffix.
+    pattern: "^[A-Z]{2,6}-[0-9]{8}-(VID|SVID|CAR|IMG)-[A-Z0-9-]{2,12}-[A-Z0-9-]{2,12}$"
+    duplicate_suffix: " - {stage}"
+
+reporting:
+  # Where the run report goes. `stdout` always works; others need credentials.
+  sinks:
+    - stdout
+    - file:reports/runs/{date}.md
+  audit_log: reports/write-audit.jsonl
