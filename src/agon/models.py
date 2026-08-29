@@ -112,7 +112,7 @@ class Metrics:
 
     @property
     def cost_per_acquisition(self) -> Optional[float]:
-        """Spend ÷ purchases. Reported, rarely gated on (§6.2 note in §1)."""
+        """Spend ÷ purchases. Reported, rarely gated on directly (§1)."""
         if self.spend is None or self.purchases in (None, 0):
             return None
         return self.spend / self.purchases

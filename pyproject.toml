@@ -78,3 +78,8 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = [
+    # tests/e2e applies this to everything it collects; `-m "not e2e"` runs
+    # the fast unit suite alone.
+    "e2e: end-to-end plugin-layer tests — hooks and CLI exercised as subprocesses",
+]

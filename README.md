@@ -9,7 +9,7 @@ envelope decides what runs unattended versus what gets proposed to a human.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
-[![Tests](https://img.shields.io/badge/tests-330%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-483%20passing-brightgreen.svg)](tests/)
 [![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-8A63D2.svg)](plugin/)
 
 ```

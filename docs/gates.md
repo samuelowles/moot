@@ -15,7 +15,7 @@ Conceptual background is in [`framework.md`](framework.md).
 |---|---|
 | `return` | Attributed conversion value ÷ spend, for a stated window and attribution setting. Called ROAS by the platforms. |
 | `cost_per_cart` | Spend ÷ add-to-carts. Called CPATC. The primary Proving Ground efficiency metric — it reads far earlier than cost per purchase. |
-| `cost_per_acquisition` | Spend ÷ purchases. Reported, rarely gated on directly (see §6.2). |
+| `cost_per_acquisition` | Spend ÷ purchases. Reported, rarely gated on directly. |
 | `aov` | Attributed conversion value ÷ purchases, for the ad, for the window. |
 | `hook_rate` | 3-second views ÷ impressions. **Undefined for static creative** — never a kill signal there. |
 | `hold_rate` | Thruplays ÷ 3-second views. |

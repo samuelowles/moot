@@ -43,7 +43,15 @@ def main() -> int:
         # A hook that cannot parse its input must not block the session.
         return 0
 
-    command = (payload.get("tool_input") or {}).get("command", "")
+    if not isinstance(payload, dict):
+        # Valid JSON that is not an object (an array, a string, null) carries
+        # no tool_input to inspect — fail open on the shape, as on the parse.
+        return 0
+
+    tool_input = payload.get("tool_input")
+    command = tool_input.get("command", "") if isinstance(tool_input, dict) else ""
+    if not isinstance(command, str):
+        return 0
     if not CONFIRM_WRITE.search(command):
         return 0
 
