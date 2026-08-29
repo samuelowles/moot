@@ -88,7 +88,7 @@ class TestFatigue:
 
 
 class TestDemote:
-    def AD(self, recent_value=640.0, age=20):
+    def ad(self, recent_value=640.0, age=20):
         return make_ad(
             "dm", stage=Stage.SCALE, campaign_id="120000000000004",
             creative=CreativeType.VIDEO, age_days=age,
@@ -100,16 +100,16 @@ class TestDemote:
         )
 
     def test_fires_on_scale_ad(self, config):
-        results = DemoteGate().evaluate(self.AD(), make_ctx(config))
+        results = DemoteGate().evaluate(self.ad(), make_ctx(config))
         assert [r.decision for r in results] == [Decision.DEMOTE]
 
     def test_not_before_min_age(self, config):
         # §7: judging before the attribution window closes reads far worse
         # than the ad is.
-        assert DemoteGate().evaluate(self.AD(age=6), make_ctx(config)) == []
+        assert DemoteGate().evaluate(self.ad(age=6), make_ctx(config)) == []
 
     def test_not_above_floor(self, config):
-        assert DemoteGate().evaluate(self.AD(recent_value=900.0), make_ctx(config)) == []
+        assert DemoteGate().evaluate(self.ad(recent_value=900.0), make_ctx(config)) == []
 
     def test_proving_ad_is_not_demoted(self, config):
         ad = make_ad(
@@ -140,25 +140,25 @@ class TestAuctionCheck:
             lifetime=Metrics(spend=800.0, purchases=5),
         )
 
-    def test_stable_ctr_risen_cpm_falling_return_fires(self, config):
+    def test_stable_ctr_risen_cpm_falling_return_fires(self):
         result = auction_check(self.auction_ad())
         assert result is not None
         assert result.evidence["auction_shift"] is True
         assert result.decision is Decision.BUDGET_UP
 
-    def test_flat_cpm_does_not_fire(self, config):
+    def test_flat_cpm_does_not_fire(self):
         ad = self.auction_ad(recent_cpm=12.0, trailing_cpm=12.0)
         assert auction_check(ad) is None
 
-    def test_collapsing_ctr_does_not_fire(self, config):
+    def test_collapsing_ctr_does_not_fire(self):
         ad = self.auction_ad(recent_ctr=0.005, trailing_ctr=0.015)
         assert auction_check(ad) is None
 
-    def test_rising_return_does_not_fire(self, config):
+    def test_rising_return_does_not_fire(self):
         ad = self.auction_ad(recent_value=4000.0, trailing_value=3600.0)
         assert auction_check(ad) is None
 
-    def test_hook_undefined_for_static_is_skipped(self, config):
+    def test_hook_undefined_for_static_is_skipped(self):
         ad = make_ad(
             "auc", creative=CreativeType.STATIC, age_days=15,
             recent=Metrics(spend=200.0, carts=7, purchases=2, purchase_value=700.0,

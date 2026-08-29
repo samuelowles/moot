@@ -30,6 +30,64 @@ def _stage(raw: Optional[str]) -> Optional[Stage]:
     return Stage.from_config_key(raw) if raw else None
 
 
+def _campaign(c: dict[str, Any], account_id: Optional[str]) -> Campaign:
+    """One campaign from its fixture JSON row."""
+    return Campaign(
+        id=str(c["id"]),
+        name=str(c.get("name", "")),
+        status=c.get("status"),
+        effective_status=c.get("effective_status") or c.get("status"),
+        account_id=account_id,
+        market=c.get("market"),
+        stage=_stage(c.get("stage")),
+        daily_budget=c.get("daily_budget"),
+        recent=_metrics_for(c, "recent"),
+        trailing=_metrics_for(c, "trailing"),
+        lifetime=_metrics_for(c, "lifetime"),
+    )
+
+
+def _adset(s: dict[str, Any]) -> AdSet:
+    """One ad set from its fixture JSON row."""
+    return AdSet(
+        id=str(s["id"]),
+        name=str(s.get("name", "")),
+        status=s.get("status"),
+        effective_status=s.get("effective_status") or s.get("status"),
+        campaign_id=s.get("campaign_id"),
+        market=s.get("market"),
+        stage=_stage(s.get("stage")),
+        daily_budget=s.get("daily_budget"),
+        recent=_metrics_for(s, "recent"),
+        trailing=_metrics_for(s, "trailing"),
+        lifetime=_metrics_for(s, "lifetime"),
+    )
+
+
+def _ad(a: dict[str, Any]) -> Ad:
+    """One ad from its fixture JSON row — the single mapping both the pull
+    and the post-write re-read perform, so a verify read sees exactly what
+    the pull saw."""
+    return Ad(
+        id=str(a["id"]),
+        name=str(a.get("name", "")),
+        status=a.get("status"),
+        effective_status=a.get("effective_status") or a.get("status"),
+        adset_id=a.get("adset_id"),
+        campaign_id=a.get("campaign_id"),
+        market=a.get("market"),
+        stage=_stage(a.get("stage")),
+        creative_type=CreativeType.parse(a.get("creative_type")),
+        post_id=a.get("post_id"),
+        url_tags=a.get("url_tags"),
+        destination_url=a.get("destination_url"),
+        age_days=a.get("age_days"),
+        recent=_metrics_for(a, "recent"),
+        trailing=_metrics_for(a, "trailing"),
+        lifetime=_metrics_for(a, "lifetime"),
+    )
+
+
 class FixtureAdapter:
     """An in-memory account loaded from a directory of JSON files.
 
@@ -53,6 +111,7 @@ class FixtureAdapter:
 
     @property
     def pull_complete(self) -> bool:
+        """The fixture's §10 breaker-2 rehearsal switch."""
         return bool(self._data.get("pull_complete", True))
 
     def _next_id(self, prefix: str) -> str:
@@ -65,59 +124,13 @@ class FixtureAdapter:
     # --- reads --------------------------------------------------------------------
 
     def fetch_entities(self) -> EntitySnapshot:
+        """The whole graph from entities.json, parsing traps included (§11)."""
         campaigns = [
-            Campaign(
-                id=str(c["id"]),
-                name=str(c.get("name", "")),
-                status=c.get("status"),
-                effective_status=c.get("effective_status") or c.get("status"),
-                account_id=self._data.get("account_id"),
-                market=c.get("market"),
-                stage=_stage(c.get("stage")),
-                daily_budget=c.get("daily_budget"),
-                recent=_metrics_for(c, "recent"),
-                trailing=_metrics_for(c, "trailing"),
-                lifetime=_metrics_for(c, "lifetime"),
-            )
+            _campaign(c, self._data.get("account_id"))
             for c in self._data.get("campaigns", [])
         ]
-        adsets = [
-            AdSet(
-                id=str(s["id"]),
-                name=str(s.get("name", "")),
-                status=s.get("status"),
-                effective_status=s.get("effective_status") or s.get("status"),
-                campaign_id=s.get("campaign_id"),
-                market=s.get("market"),
-                stage=_stage(s.get("stage")),
-                daily_budget=s.get("daily_budget"),
-                recent=_metrics_for(s, "recent"),
-                trailing=_metrics_for(s, "trailing"),
-                lifetime=_metrics_for(s, "lifetime"),
-            )
-            for s in self._data.get("adsets", [])
-        ]
-        ads = [
-            Ad(
-                id=str(a["id"]),
-                name=str(a.get("name", "")),
-                status=a.get("status"),
-                effective_status=a.get("effective_status") or a.get("status"),
-                adset_id=a.get("adset_id"),
-                campaign_id=a.get("campaign_id"),
-                market=a.get("market"),
-                stage=_stage(a.get("stage")),
-                creative_type=CreativeType.parse(a.get("creative_type")),
-                post_id=a.get("post_id"),
-                url_tags=a.get("url_tags"),
-                destination_url=a.get("destination_url"),
-                age_days=a.get("age_days"),
-                recent=_metrics_for(a, "recent"),
-                trailing=_metrics_for(a, "trailing"),
-                lifetime=_metrics_for(a, "lifetime"),
-            )
-            for a in self._data.get("ads", [])
-        ]
+        adsets = [_adset(s) for s in self._data.get("adsets", [])]
+        ads = [_ad(a) for a in self._data.get("ads", [])]
         return EntitySnapshot(
             account_id=str(self._data.get("account_id", "")),
             campaigns=campaigns,
@@ -128,6 +141,7 @@ class FixtureAdapter:
         )
 
     def fetch_insights(self, entity_id: str, window: str) -> list[dict[str, Any]]:
+        """Raw stored rows; a missing entity is an incomplete pull, not empty."""
         if window not in _WINDOWS:
             raise ValueError(f"unknown window {window!r}; expected one of {_WINDOWS}")
         for kind in ("campaigns", "adsets", "ads"):
@@ -142,26 +156,10 @@ class FixtureAdapter:
         )
 
     def get_ad(self, ad_id: str) -> Ad:
+        """The same mapping the pull performs, so read-backs are honest."""
         for a in self._data.get("ads", []):
             if str(a.get("id")) == ad_id:
-                return Ad(
-                    id=str(a["id"]),
-                    name=str(a.get("name", "")),
-                    status=a.get("status"),
-                    effective_status=a.get("effective_status") or a.get("status"),
-                    adset_id=a.get("adset_id"),
-                    campaign_id=a.get("campaign_id"),
-                    market=a.get("market"),
-                    stage=_stage(a.get("stage")),
-                    creative_type=CreativeType.parse(a.get("creative_type")),
-                    post_id=a.get("post_id"),
-                    url_tags=a.get("url_tags"),
-                    destination_url=a.get("destination_url"),
-                    age_days=a.get("age_days"),
-                    recent=_metrics_for(a, "recent"),
-                    trailing=_metrics_for(a, "trailing"),
-                    lifetime=_metrics_for(a, "lifetime"),
-                )
+                return _ad(a)
         raise KeyError(f"fixture has no ad {ad_id!r}")
 
     def get_adset(self, adset_id: str) -> AdSet:
@@ -221,6 +219,7 @@ class FixtureAdapter:
         dry_run: bool,
         validate_only: bool,
     ) -> str:
+        """Recorded only — the fixture never dispatches anything."""
         creative_id = self._next_id("cr")
         self._record(
             "create_creative_from_post",
@@ -246,6 +245,7 @@ class FixtureAdapter:
         dry_run: bool,
         validate_only: bool,
     ) -> str:
+        """Registers the created ad so the verify re-read can find it."""
         ad_id = self._next_id("ad")
         self._record(
             "create_ad",
@@ -293,6 +293,8 @@ class FixtureAdapter:
         dry_run: bool,
         validate_only: bool,
     ) -> None:
+        """Records AND applies the change, so a read-back contradicts
+        only when a real write would."""
         self._record(
             "set_status",
             entity_id=entity_id,
@@ -316,6 +318,7 @@ class FixtureAdapter:
         dry_run: bool,
         validate_only: bool,
     ) -> None:
+        """Applies the new budget so the §8 read-back is honest."""
         self._record(
             "set_campaign_budget",
             campaign_id=campaign_id,
@@ -339,6 +342,7 @@ class FixtureAdapter:
         dry_run: bool,
         validate_only: bool,
     ) -> str:
+        """Born PAUSED in the in-memory graph, pixel set explicitly."""
         adset_id = self._next_id("adset")
         self._record(
             "create_adset",

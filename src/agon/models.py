@@ -154,7 +154,12 @@ class Metrics:
 
 @dataclass(frozen=True)
 class Campaign:
-    """A campaign in the stage map, with lifetime aggregate metrics."""
+    """A campaign in the stage map, with lifetime aggregate metrics.
+
+    Creative-level facts (post id, url_tags, destination) live on :class:`Ad`
+    — a campaign is a budget container, and pretending it carries a single
+    creative's facts invites acting on numbers that were never reported.
+    """
 
     id: str
     name: str
@@ -163,10 +168,6 @@ class Campaign:
     account_id: Optional[str] = None  # parent id
     market: Optional[str] = None
     stage: Optional[Stage] = None
-    creative_type: Optional[CreativeType] = None
-    post_id: Optional[str] = None
-    url_tags: Optional[str] = None
-    destination_url: Optional[str] = None
     age_days: Optional[int] = None
     recent: Optional[Metrics] = None
     trailing: Optional[Metrics] = None
@@ -176,7 +177,11 @@ class Campaign:
 
 @dataclass(frozen=True)
 class AdSet:
-    """An ad set. Baseline candidates are ad sets (docs/gates.md §3)."""
+    """An ad set. Baseline candidates are ad sets (docs/gates.md §3).
+
+    Like campaigns, an ad set is a container: its creative facts are on the
+    ads it holds, never synthesised here.
+    """
 
     id: str
     name: str
@@ -185,10 +190,6 @@ class AdSet:
     campaign_id: Optional[str] = None  # parent id
     market: Optional[str] = None
     stage: Optional[Stage] = None
-    creative_type: Optional[CreativeType] = None
-    post_id: Optional[str] = None
-    url_tags: Optional[str] = None
-    destination_url: Optional[str] = None
     age_days: Optional[int] = None
     recent: Optional[Metrics] = None
     trailing: Optional[Metrics] = None

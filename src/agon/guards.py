@@ -45,6 +45,7 @@ class RunSnapshot:
     spend_unknown_ads: int = 0
 
     def to_dict(self) -> dict[str, Any]:
+        """The snapshot as evidence - lands in the guard verdict's audit."""
         return {
             "pull_complete": self.pull_complete,
             "pull_errors": list(self.pull_errors),
@@ -66,20 +67,12 @@ class GuardVerdict:
     urgent: bool = False
 
 
-def evaluate_guards(
-    actions: list[Action], snapshot: RunSnapshot, config: Config
-) -> GuardVerdict:
-    """Run the anomaly guard and the three circuit breakers (§10).
-
-    Any trip means ``writes_allowed=False`` for the whole run — including the
-    actions that look individually sound, because the guard judges the *data
-    the actions were computed from*, not the actions.
-    """
+def _breaker_trips(
+    snapshot: RunSnapshot, config: Config, evidence: dict[str, Any]
+) -> list[str]:
+    """Breakers 1 and 2 (§10): account return below the breaker floor, and
+    any incomplete pull. Each reason here forbids writes for the whole run."""
     reasons: list[str] = []
-    evidence: dict[str, Any] = {"snapshot": snapshot.to_dict()}
-    urgent = False
-
-    # Breaker 1 — account return(recent) < breaker floor (0.35 × T, §2).
     breaker_floor = config.threshold("breaker_floor")
     evidence["breaker_floor"] = breaker_floor
     account_return = snapshot.account_recent_return
@@ -88,30 +81,31 @@ def evaluate_guards(
             f"CIRCUIT BREAKER 1: account recent return {account_return:.2f} < "
             f"breaker floor {breaker_floor:.2f} (§10)."
         )
-        urgent = True
     elif account_return is None:
         reasons.append(
             "CIRCUIT BREAKER (data): account recent return unreported — an "
             "unverifiable account-level read cannot authorize writes (§10)."
         )
-        urgent = True
-
-    # Breaker 2 — the data pull failed, was partial, or paginated
-    # inconsistently. An incomplete pull means no writes this run.
     if not snapshot.pull_complete:
         detail = f" ({'; '.join(snapshot.pull_errors)})" if snapshot.pull_errors else ""
         reasons.append(
             f"CIRCUIT BREAKER 2: data pull incomplete{detail}. No writes this "
             "run; report-only, flag the gap (§10)."
         )
-        urgent = True
+    return reasons
 
-    # Anomaly guard — if this run's pauses would darken more than
-    # anomaly_guard_pct of pipeline spend, execute NOTHING and report URGENT.
-    # Denominator: the delivering pipeline's KNOWN recent spend (the live
-    # footprint this run acts on) — unreported spend is never ``or 0``-ed in,
-    # which would make a mass pause read artificially small exactly when the
-    # data is partial. Trip is >, not >=, and only with real spend.
+
+def _anomaly_trips(
+    snapshot: RunSnapshot, config: Config, evidence: dict[str, Any]
+) -> list[str]:
+    """The anomaly guard and the unknown-spend data-quality trip (§10).
+
+    Denominator: the delivering pipeline's KNOWN recent spend — unreported
+    spend is never ``or 0``-ed in, which would make a mass pause read
+    artificially small exactly when the data is partial. Trip is >, not >=,
+    and only with real spend.
+    """
+    reasons: list[str] = []
     guard_pct = config.guards.anomaly_guard_pct
     share = (
         snapshot.paused_recent_spend / snapshot.pipeline_recent_spend
@@ -129,12 +123,10 @@ def evaluate_guards(
             "indicates bad data more often than bad ads — executing nothing, "
             "reporting URGENT (§10)."
         )
-        urgent = True
-
-    # Data-quality trip: unreported spend is itself a partial-data signal.
-    # When the estimated unknown recent spend exceeds 20% of the KNOWN
-    # pipeline spend, the footprint this run acts on is largely unverifiable
-    # — the same class of gap as breaker 2, so no writes this run.
+    # Unreported spend is itself a partial-data signal: when the estimated
+    # unknown recent spend exceeds 20% of the KNOWN pipeline spend, the
+    # footprint this run acts on is largely unverifiable — the same class of
+    # gap as breaker 2, so no writes this run.
     if (
         snapshot.pipeline_recent_spend > 0
         and snapshot.spend_unknown > SPEND_UNKNOWN_SHARE_LIMIT * snapshot.pipeline_recent_spend
@@ -146,11 +138,28 @@ def evaluate_guards(
             f"spend {snapshot.pipeline_recent_spend:.2f}. Partial spend data "
             "cannot authorize writes (§10)."
         )
-        urgent = True
+    return reasons
 
+
+def evaluate_guards(
+    _actions: list[Action], snapshot: RunSnapshot, config: Config
+) -> GuardVerdict:
+    """Run the anomaly guard and the three circuit breakers (§10).
+
+    The action set is accepted but deliberately unread — the guard judges the
+    *data the actions were computed from*, not the actions. Any trip means
+    ``writes_allowed=False`` for the whole run, including the actions that
+    look individually sound.
+    """
+    evidence: dict[str, Any] = {"snapshot": snapshot.to_dict()}
+    reasons = _breaker_trips(snapshot, config, evidence)
+    reasons += _anomaly_trips(snapshot, config, evidence)
     if reasons:
-        return GuardVerdict(writes_allowed=False, reasons=reasons, evidence=evidence,
-                            urgent=urgent)
+        # Every trip above is urgent: no writes happened and the report must
+        # say why at the top.
+        return GuardVerdict(
+            writes_allowed=False, reasons=reasons, evidence=evidence, urgent=True
+        )
     return GuardVerdict(writes_allowed=True, reasons=[], evidence=evidence)
 
 

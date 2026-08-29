@@ -89,6 +89,7 @@ class FatigueGate:
     name = "fatigue"
 
     def evaluate(self, ad: Ad, ctx: GateContext) -> list[GateResult]:
+        """Fires only when all five §6 conditions hold."""
         if not isinstance(ad, Ad) or not delivering(ad):
             return []
         # §6 is the Proving Ground → Reserve transition.
@@ -123,6 +124,7 @@ class WatchGate:
     name = "watch"
 
     def evaluate(self, ad: Ad, ctx: GateContext) -> list[GateResult]:
+        """The §6 watchlist limb: conditions 1-4 met, no decline of its own."""
         if not isinstance(ad, Ad) or not delivering(ad):
             return []
         if ad.stage is not Stage.PROVING:

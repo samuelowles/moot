@@ -103,10 +103,10 @@ class TestSpendUnknown:
     share is itself a data-quality trip."""
 
     def _snapshot(self, **kw):
-        base = dict(
-            pull_complete=True, account_recent_return=4.0,
-            pipeline_recent_spend=1000.0, paused_recent_spend=100.0,
-        )
+        base = {
+            "pull_complete": True, "account_recent_return": 4.0,
+            "pipeline_recent_spend": 1000.0, "paused_recent_spend": 100.0,
+        }
         base.update(kw)
         return RunSnapshot(**base)
 

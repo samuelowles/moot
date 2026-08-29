@@ -165,7 +165,7 @@ class MetaAdapter:
 
     def _post(self, path: str, params: dict[str, Any]) -> dict[str, Any]:
         """POST with a validate_only rehearsal first; abort on failure."""
-        self._post_raw(path, {**params, "execution_options": ["validate_only"]})
+        self._validate_only(path, params)
         return self._post_raw(path, params)
 
     def _post_raw(self, path: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -182,14 +182,13 @@ class MetaAdapter:
             )
         return payload
 
-
-    def _rehearse(self, path: str, params: dict[str, Any]) -> None:
-        """Issue the same write with execution_options=["validate_only"] first.
+    def _validate_only(self, path: str, params: dict[str, Any]) -> dict[str, Any]:
+        """Issue the same write with execution_options=["validate_only"].
 
         A failed rehearsal aborts the real write: Graph validation errors are
         cheap to discover before the account is touched.
         """
-        self._post_raw(path, {**params, "execution_options": ["validate_only"]})
+        return self._post_raw(path, {**params, "execution_options": ["validate_only"]})
 
     def _check_account(self, act_id: str) -> None:
         if not self.allowed_account_ids:
@@ -261,7 +260,40 @@ class MetaAdapter:
             pull_errors.append(f"insights {window} for {entity_id}: {exc}")
             return None
 
+    def _campaign_from_row(
+        self, row: dict[str, Any], pull_errors: list[str]
+    ) -> Campaign:
+        """A campaign with its three insight windows read safely (§10)."""
+        return Campaign(
+            id=row["id"],
+            name=row.get("name", ""),
+            status=row.get("status"),
+            effective_status=row.get("effective_status"),
+            account_id=row.get("account_id"),
+            daily_budget=_budget_to_major(row.get("daily_budget")),
+            recent=self._insights_safe(row["id"], "recent", pull_errors),
+            trailing=self._insights_safe(row["id"], "trailing", pull_errors),
+            lifetime=self._insights_safe(row["id"], "lifetime", pull_errors),
+        )
+
+    def _adset_from_row(
+        self, row: dict[str, Any], pull_errors: list[str]
+    ) -> AdSet:
+        """An ad set with its three insight windows read safely (§10)."""
+        return AdSet(
+            id=row["id"],
+            name=row.get("name", ""),
+            status=row.get("status"),
+            effective_status=row.get("effective_status"),
+            campaign_id=row.get("campaign_id"),
+            daily_budget=_budget_to_major(row.get("daily_budget")),
+            recent=self._insights_safe(row["id"], "recent", pull_errors),
+            trailing=self._insights_safe(row["id"], "trailing", pull_errors),
+            lifetime=self._insights_safe(row["id"], "lifetime", pull_errors),
+        )
+
     def fetch_entities(self) -> EntitySnapshot:
+        """Three paginated pulls; any gap means pull_complete=False (§10)."""
         account_id = (
             self.allowed_account_ids[0] if self.allowed_account_ids else ""
         )
@@ -270,9 +302,6 @@ class MetaAdapter:
                 "fetch_entities needs the account id — pass allowed_account_ids"
             )
         pull_errors: list[str] = []
-        campaigns: list[Campaign] = []
-        adsets: list[AdSet] = []
-        ads: list[Ad] = []
         try:
             campaign_rows = self._get_all_pages(
                 f"{account_id}/campaigns", {"fields": CAMPAIGN_FIELDS, "limit": 100}
@@ -290,41 +319,13 @@ class MetaAdapter:
                 pull_complete=False,
                 errors=[str(exc)],
             )
-        for row in campaign_rows:
-            campaigns.append(
-                Campaign(
-                    id=row["id"],
-                    name=row.get("name", ""),
-                    status=row.get("status"),
-                    effective_status=row.get("effective_status"),
-                    account_id=row.get("account_id"),
-                    daily_budget=_budget_to_major(row.get("daily_budget")),
-                    recent=self._insights_safe(row["id"], "recent", pull_errors),
-                    trailing=self._insights_safe(row["id"], "trailing", pull_errors),
-                    lifetime=self._insights_safe(row["id"], "lifetime", pull_errors),
-                )
-            )
-        for row in adset_rows:
-            adsets.append(
-                AdSet(
-                    id=row["id"],
-                    name=row.get("name", ""),
-                    status=row.get("status"),
-                    effective_status=row.get("effective_status"),
-                    campaign_id=row.get("campaign_id"),
-                    daily_budget=_budget_to_major(row.get("daily_budget")),
-                    recent=self._insights_safe(row["id"], "recent", pull_errors),
-                    trailing=self._insights_safe(row["id"], "trailing", pull_errors),
-                    lifetime=self._insights_safe(row["id"], "lifetime", pull_errors),
-                )
-            )
-        for row in ad_rows:
-            ads.append(self._ad_from_row(row, pull_errors))
         return EntitySnapshot(
             account_id=account_id,
-            campaigns=campaigns,
-            adsets=adsets,
-            ads=ads,
+            campaigns=[
+                self._campaign_from_row(row, pull_errors) for row in campaign_rows
+            ],
+            adsets=[self._adset_from_row(row, pull_errors) for row in adset_rows],
+            ads=[self._ad_from_row(row, pull_errors) for row in ad_rows],
             pull_complete=not pull_errors,
             errors=pull_errors,
         )
@@ -360,6 +361,7 @@ class MetaAdapter:
         )
 
     def fetch_insights(self, entity_id: str, window: str) -> list[dict[str, Any]]:
+        """Raw rows for one entity/window — named presets only (§11.7)."""
         preset = self.window_presets.get(window)
         if preset is None:
             raise ValueError(f"unknown window {window!r}")
@@ -373,6 +375,7 @@ class MetaAdapter:
         )
 
     def get_ad(self, ad_id: str) -> Ad:
+        """One ad with its creative-resolved post id (framework.md §4)."""
         row = self._get(ad_id, {"fields": AD_FIELDS})
         return self._ad_from_row(row)
 
@@ -429,6 +432,7 @@ class MetaAdapter:
         dry_run: bool,
         validate_only: bool,
     ) -> str:
+        """The creative referencing the post — §9 C url_tags carried."""
         self._check_account(act_id)
         object_story_id = f"{page_id}_{post_id}" if post_id else page_id
         params: dict[str, Any] = {"object_story_id": object_story_id}
@@ -437,7 +441,7 @@ class MetaAdapter:
             # UTM taxonomy is invisible to every downstream analytics surface.
             params["url_tags"] = url_tags
         if dry_run or validate_only:
-            self._rehearse(f"{act_id}/adcreatives", params)
+            self._validate_only(f"{act_id}/adcreatives", params)
             return "dry-run"
         result = self._post(f"{act_id}/adcreatives", params)
         return str(result.get("id", ""))
@@ -450,14 +454,16 @@ class MetaAdapter:
         name: str,
         status: str = "PAUSED",
         url_tags: str | None = None,
-        post_id: str | None = None,
+        post_id: str | None = None,  # noqa: ARG002 — name fixed by the protocol
         *,
         dry_run: bool,
         validate_only: bool,
     ) -> str:
+        """An ad born PAUSED (framework.md §4) after the allowlist check."""
         # ``post_id`` is on the protocol so fixture and live signatures match;
         # the live chain carries it inside the creative (object_story_id), so
-        # it is accepted and not re-sent here.
+        # it is accepted and not re-sent here — it cannot be underscore-
+        # prefixed without diverging from the protocol's parameter name.
         self._check_account(act_id)
         params: dict[str, Any] = {
             "name": name,
@@ -468,7 +474,7 @@ class MetaAdapter:
         if url_tags:
             params["url_tags"] = url_tags
         if dry_run or validate_only:
-            self._rehearse(f"{act_id}/ads", params)
+            self._validate_only(f"{act_id}/ads", params)
             return "dry-run"
         result = self._post(f"{act_id}/ads", params)
         return str(result.get("id", ""))
@@ -482,6 +488,7 @@ class MetaAdapter:
         dry_run: bool,
         validate_only: bool,
     ) -> None:
+        """PAUSE or ACTIVE only, after resolving and checking the account."""
         if status not in ("ACTIVE", "PAUSED"):
             raise WriteRefusedError(f"unsupported status {status!r}")
         account = self._account_of(entity_id, entity_type)
@@ -500,6 +507,7 @@ class MetaAdapter:
         dry_run: bool,
         validate_only: bool,
     ) -> None:
+        """Minor units on the wire; the amount was clamped upstream."""
         account = self._account_of(campaign_id, "campaign")
         self._check_account(account)
         # Minor units on the wire — see MINOR_UNITS_PER_MAJOR. `daily_amount`
@@ -521,6 +529,7 @@ class MetaAdapter:
         dry_run: bool,
         validate_only: bool,
     ) -> str:
+        """A cohort ad set born PAUSED with the pixel set explicitly."""
         self._check_account(act_id)
         params: dict[str, Any] = {
             "name": name,
@@ -533,7 +542,7 @@ class MetaAdapter:
             "status": status,  # born PAUSED — §5 action
         }
         if dry_run or validate_only:
-            self._rehearse(f"{act_id}/adsets", params)
+            self._validate_only(f"{act_id}/adsets", params)
             return "dry-run"
         result = self._post(f"{act_id}/adsets", params)
         return str(result.get("id", ""))
@@ -623,4 +632,4 @@ def _budget_to_major(value: Any) -> Optional[float]:
 
 def _budget_to_minor(value: float) -> int:
     """Major units as the integer minor-unit value Graph expects on a write."""
-    return int(round(value * MINOR_UNITS_PER_MAJOR))
+    return round(value * MINOR_UNITS_PER_MAJOR)

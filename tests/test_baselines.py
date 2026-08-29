@@ -37,7 +37,7 @@ class TestComputed:
         assert baseline.value == pytest.approx(10.0)  # the 9.0-return set's cpc
 
     def test_population_five_takes_two(self, config):
-        five = FOUR_NZ + [adset("e", "NZ", Stage.PROVING, 400, 1000, 20)]
+        five = [*FOUR_NZ, adset("e", "NZ", Stage.PROVING, 400, 1000, 20)]
         baseline = compute_baseline("NZ", five, config)
         # ceil(5/4) = 2 → top two by return: cpc 10 and cpc 20 → mean 15.
         assert baseline.population == 5
@@ -50,17 +50,17 @@ class TestComputed:
         assert baseline.source == "fallback"  # population 1 < 4
 
     def test_reserve_ad_sets_excluded(self, config):
-        with_reserve = FOUR_NZ + [adset("r", "NZ", Stage.RESERVE, 5000, 50000, 10)]
+        with_reserve = [*FOUR_NZ, adset("r", "NZ", Stage.RESERVE, 5000, 50000, 10)]
         baseline = compute_baseline("NZ", with_reserve, config)
         assert baseline.population == 4  # the Reserve set is not a candidate
 
     def test_low_spend_excluded(self, config):
-        thin = FOUR_NZ + [adset("t", "NZ", Stage.PROVING, 10, 100, 2)]
+        thin = [*FOUR_NZ, adset("t", "NZ", Stage.PROVING, 10, 100, 2)]
         baseline = compute_baseline("NZ", thin, config)
         assert baseline.population == 4  # under baseline_min_spend 100
 
     def test_zero_cart_ad_sets_excluded(self, config):
-        no_carts = FOUR_NZ + [adset("z", "NZ", Stage.PROVING, 500, 5000, 0)]
+        no_carts = [*FOUR_NZ, adset("z", "NZ", Stage.PROVING, 500, 5000, 0)]
         baseline = compute_baseline("NZ", no_carts, config)
         assert baseline.population == 4
 
@@ -99,9 +99,7 @@ class TestFallbackAndSeeded:
 class TestCartRateBand:
     def test_band_across_top_quartile(self, config):
         # §3.2: min and max cart rate across the top-quartile sets.
-        five = FOUR_NZ + [
-            adset("e", "NZ", Stage.PROVING, 900, 8100, 45, outbound=450),
-        ]
+        five = [*FOUR_NZ, adset("e", "NZ", Stage.PROVING, 900, 8100, 45, outbound=450)]
         for entry in five:
             if entry.id == "a":
                 five[five.index(entry)] = adset(
@@ -131,8 +129,9 @@ class TestSeedOutranksFallback:
 
     def test_both_configured_market_is_seeded(self, tmp_path, snapshot):
         import yaml
-        from agon.config import load_config
         from conftest import CONFIG_PATH
+
+        from agon.config import load_config
 
         payload = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
         payload["markets"]["US"]["baseline_fallback"] = 33.0

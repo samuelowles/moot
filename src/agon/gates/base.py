@@ -49,6 +49,7 @@ class Gate(Protocol):
     name: str
 
     def evaluate(self, entity: Any, ctx: GateContext) -> list[GateResult]:
+        """Every result the gate fires, in its documented limb order."""
         ...
 
 
@@ -59,11 +60,6 @@ def delivering(entity: Ad) -> bool:
     a no-op: the pipeline filters these out and reports them as already-dark.
     """
     return (entity.effective_status or "").upper() == "ACTIVE"
-
-
-def _both(a: Optional[float], b: Optional[float]) -> bool:
-    """True when both sides of a threshold ratio are usable numbers."""
-    return a is not None and b is not None
 
 
 def auction_check(ad: Ad) -> Optional[GateResult]:
@@ -82,8 +78,11 @@ def auction_check(ad: Ad) -> Optional[GateResult]:
     if recent is None or trailing is None:
         return None
 
-    ctr_ok = _both(recent.outbound_ctr, trailing.outbound_ctr) and (
-        recent.outbound_ctr >= 0.90 * trailing.outbound_ctr  # §7.1
+    ctr_recent, ctr_trailing = recent.outbound_ctr, trailing.outbound_ctr
+    ctr_ok = (
+        ctr_recent is not None
+        and ctr_trailing is not None
+        and ctr_recent >= 0.90 * ctr_trailing  # §7.1
     )
     # Hook rate is skipped entirely where undefined (static creative) — §5, §11.5.
     hook_recent, hook_trailing = recent.hook_rate, trailing.hook_rate
@@ -92,12 +91,13 @@ def auction_check(ad: Ad) -> Optional[GateResult]:
         or hook_trailing is None
         or hook_recent >= 0.90 * hook_trailing  # §7.1
     )
-    cpm_risen = _both(recent.cpm, trailing.cpm) and recent.cpm > 1.30 * trailing.cpm  # §7.1
-    return_falling = _both(recent.return_, trailing.return_) and recent.return_ < (
-        trailing.return_
-    )
-
-    if not (ctr_ok and hook_ok and cpm_risen and return_falling):
+    if not (ctr_ok and hook_ok):
+        return None
+    cpm_recent, cpm_trailing = recent.cpm, trailing.cpm
+    if cpm_recent is None or cpm_trailing is None or not cpm_recent > 1.30 * cpm_trailing:
+        return None  # §7.1
+    ret_recent, ret_trailing = recent.return_, trailing.return_
+    if ret_recent is None or ret_trailing is None or not ret_recent < ret_trailing:
         return None
 
     return GateResult(
@@ -105,19 +105,19 @@ def auction_check(ad: Ad) -> Optional[GateResult]:
         entity_id=ad.id,
         reasons=[
             "Auction check §7.1: creative signal stable while CPM rose "
-            f"{recent.cpm / trailing.cpm:.2f}× and return fell — auction "
+            f"{cpm_recent / cpm_trailing:.2f}× and return fell — auction "
             "cost shift, not creative death. Retirement converted to a "
             "budget/bid proposal.",
         ],
         evidence={
             "gate": "auction_check",
             "auction_shift": True,
-            "outbound_ctr_recent": recent.outbound_ctr,
-            "outbound_ctr_trailing": trailing.outbound_ctr,
-            "cpm_recent": recent.cpm,
-            "cpm_trailing": trailing.cpm,
-            "return_recent": recent.return_,
-            "return_trailing": trailing.return_,
+            "outbound_ctr_recent": ctr_recent,
+            "outbound_ctr_trailing": ctr_trailing,
+            "cpm_recent": cpm_recent,
+            "cpm_trailing": cpm_trailing,
+            "return_recent": ret_recent,
+            "return_trailing": ret_trailing,
             "hook_rate_recent": hook_recent,
             "hook_rate_trailing": hook_trailing,
         },

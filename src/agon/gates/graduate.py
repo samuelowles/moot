@@ -9,8 +9,9 @@ hook rate wipes out the best performers in most accounts.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
+from agon.config import GraduateGates
 from agon.gates.base import GateContext, delivering
 from agon.models import Ad, CreativeType, Decision, GateResult, Stage
 
@@ -21,6 +22,7 @@ class GraduateGate:
     name = "graduate"
 
     def evaluate(self, ad: Ad, ctx: GateContext) -> list[GateResult]:
+        """Volume gates then Paths A/B, then the speculative fallback."""
         if not isinstance(ad, Ad) or not delivering(ad):
             return []
         # §5 applies to the Proving Ground → Scale transition only.
@@ -76,6 +78,8 @@ class GraduateGate:
     # --- Paths A and B ------------------------------------------------------------
 
     def _paths(self, ad: Ad, ctx: GateContext) -> list[GateResult]:
+        """Path A (efficiency) or Path B (return), each behind §5's volume
+        gates. Returns [] when neither path qualifies."""
         gates = ctx.config.graduate
         trailing = ad.trailing
         recent = ad.recent
@@ -116,14 +120,38 @@ class GraduateGate:
                     evidence={**evidence, "path": "A"},
                 )
             ]
+        return self._path_b(ad, gates, evidence, baseline, floor)
 
-        # Path B — return: (recent OR trailing ≥ floor) AND cpc <= ceiling.
+    def _path_b(
+        self,
+        ad: Ad,
+        gates: GraduateGates,
+        evidence: dict[str, Any],
+        baseline: float,
+        floor: float,
+    ) -> list[GateResult]:
+        """Path B — return: (recent OR trailing ≥ floor) AND cpc ≤ ceiling.
+
+        §5 Path B note: an ad that qualifies on return while costing more
+        than 1.80 × baseline per cart is a defensible trade — but it is
+        *proposed, not executed*. Surface it as an unauthorized graduate.
+        """
+        trailing = ad.trailing
+        recent = ad.recent
+        if trailing is None:
+            return []  # unreachable: _paths already checked; kept for the type checker
+        cpc = trailing.cost_per_cart
+        if cpc is None:
+            return []  # unreachable for the same reason
         return_ok = (recent is not None and recent.return_ is not None and
                      recent.return_ >= floor) or (
             trailing.return_ is not None and trailing.return_ >= floor
         )
         ceiling = gates.return_cpc_ceiling * baseline
-        if return_ok and trailing.cost_per_cart <= ceiling:
+        if not return_ok:
+            return []
+
+        if cpc <= ceiling:
             return [
                 GateResult(
                     decision=Decision.GRADUATE,
@@ -132,31 +160,26 @@ class GraduateGate:
                         f"GRADUATE Path B (return): return "
                         f"(recent {recent.return_ if recent else None} / trailing "
                         f"{trailing.return_}) ≥ floor {floor:.2f} while cost per "
-                        f"cart {trailing.cost_per_cart:.2f} ≤ "
+                        f"cart {cpc:.2f} ≤ "
                         f"{gates.return_cpc_ceiling} × baseline ({ceiling:.2f}).",
                     ],
                     evidence={**evidence, "path": "B"},
                 )
             ]
-        # §5 Path B note: an ad that qualifies on return while costing more
-        # than 1.80 × baseline per cart is a defensible trade — but it is
-        # *proposed, not executed*. Surface it as an unauthorized graduate.
-        if return_ok and trailing.cost_per_cart > ceiling:
-            return [
-                GateResult(
-                    decision=Decision.GRADUATE,
-                    entity_id=ad.id,
-                    reasons=[
-                        f"GRADUATE Path B (return), PROPOSED ONLY: return clears "
-                        f"the floor but cost per cart {trailing.cost_per_cart:.2f} "
-                        f"exceeds {gates.return_cpc_ceiling} × baseline "
-                        f"({ceiling:.2f}) — anything past the ceiling is "
-                        "proposed, not executed (§5).",
-                    ],
-                    evidence={**evidence, "path": "B", "proposed_only": True},
-                )
-            ]
-        return []
+        return [
+            GateResult(
+                decision=Decision.GRADUATE,
+                entity_id=ad.id,
+                reasons=[
+                    f"GRADUATE Path B (return), PROPOSED ONLY: return clears "
+                    f"the floor but cost per cart {cpc:.2f} "
+                    f"exceeds {gates.return_cpc_ceiling} × baseline "
+                    f"({ceiling:.2f}) — anything past the ceiling is "
+                    "proposed, not executed (§5).",
+                ],
+                evidence={**evidence, "path": "B", "proposed_only": True},
+            )
+        ]
 
     # --- speculative ----------------------------------------------------------------
 

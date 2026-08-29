@@ -10,8 +10,8 @@ from agon.adapters.base import (
 )
 
 __all__ = [
-    "AdapterError",
     "AdPlatformAdapter",
+    "AdapterError",
     "EntitySnapshot",
     "IncompletePullError",
     "PostIdMismatchError",

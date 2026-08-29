@@ -7,32 +7,23 @@ rule.
 
 ## Why adversarial
 
-The gates in [`gates.md`](gates.md) decide what is *eligible*. They cannot
-decide what is *wise*, because every gate encodes a worldview and every
-worldview has a blind spot that its own metrics cannot see.
+The short version is in the [README](../README.md#why-adversarial-specifically);
+the decision record, with the alternatives that were rejected, is
+[ADR-0005](adr/0005-adversarial-council-over-single-strategist.md). In one line:
+a single balanced agent returns the *average* of the mandates it holds, and the
+average is the one answer that is never right for a particular account on a
+particular day.
 
-The obvious fix — one strategist agent with a balanced prompt — fails in a
-specific and predictable way. A single agent asked to weigh efficiency against
-growth against risk produces the *average* of those positions, and the average
-is the one answer that is never right. It hedges. It recommends "monitoring".
-It says both options have merit. The mush in the middle is exactly what you get
-when you ask one model to hold five mandates at once, because there is nothing
-in the prompt forcing it to pay a price for any of them.
+This document is the roster itself — what each agent watches, what it always
+argues, and where its own mandate misleads it.
 
-Agon's answer is to give each mandate its own agent, its own metrics, and no
-responsibility for the others. The Scaling Operator is not asked to be prudent.
-The Risk Officer is not asked to be ambitious. Each argues its corner as hard
-as it can, and the collision surfaces the trade-off that a balanced prompt
-would have quietly averaged away.
-
-Then someone has to decide. The Adjudicator rules, names who it ruled against,
-and states what would change its mind.
-
-**Two vetoes are not debatable.** The Risk Officer's guard veto and the Brand
-Steward's destination veto are enforced in code — `guards.py` and `council.py`
-respectively — not by prose in a prompt. An agent that can be argued out of a
-safety rule does not have a safety rule. Everything else is genuinely up for
-argument.
+Two things to keep in view while reading it. Each agent has **no
+responsibility for the others' concerns**: the Scaling Operator is never asked
+to be prudent, the Risk Officer never asked to be ambitious. And **two vetoes
+are not debatable** — the Risk Officer's guard veto and the Brand Steward's
+destination veto are enforced in `guards.py` and `council.py` respectively,
+not by prose in a charter. An agent that can be argued out of a safety rule
+does not have a safety rule.
 
 ---
 

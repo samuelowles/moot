@@ -14,6 +14,7 @@ and a subcommand value wins when both levels supply one.
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -22,9 +23,15 @@ import click
 from agon.adapters.base import EntitySnapshot
 from agon.adapters.fixture import FixtureAdapter
 from agon.baselines import compute_baselines
-from agon.config import ConfigError, load_config
-from agon.council import brief, contested
-from agon.pipeline import Pipeline
+from agon.config import Config, ConfigError, load_config
+from agon.council import (
+    AGENT_ROSTER,
+    brief,
+    build_debate_context,
+    charter_block,
+    contested,
+)
+from agon.pipeline import Pipeline, RunResult
 from agon.report import render_report
 from agon.writes import dispatch, previous_run_state, read_only_env
 
@@ -34,8 +41,11 @@ logger = logging.getLogger(__name__)
 # happened, and cron must be able to tell that from a healthy run.
 GUARD_EXIT_CODE = 2
 
+# .env.example documents META_GRAPH_VERSION; the adapter default matches.
+ENV_GRAPH_VERSION = "META_GRAPH_VERSION"
 
-def _build_adapter(meta: bool, fixtures: str | None, config):
+
+def _build_adapter(meta: bool, fixtures: str | None, config: Config):
     if not meta:
         if not fixtures:
             fallback = Path("tests/fixtures")
@@ -49,9 +59,13 @@ def _build_adapter(meta: bool, fixtures: str | None, config):
                 )
         return FixtureAdapter(fixtures)
     # Imported lazily so fixture-only environments never import requests paths.
-    from agon.adapters.meta import MetaAdapter
+    from agon.adapters.meta import DEFAULT_GRAPH_VERSION, MetaAdapter
 
-    return MetaAdapter(allowed_account_ids=config.account.allowed_account_ids)
+    graph_version = os.environ.get(ENV_GRAPH_VERSION) or DEFAULT_GRAPH_VERSION
+    return MetaAdapter(
+        allowed_account_ids=config.account.allowed_account_ids,
+        graph_version=graph_version,
+    )
 
 
 @click.group()
@@ -141,7 +155,7 @@ def _apply_overrides(
         obj["confirm_write"] = not dry_run
 
 
-def _run(ctx: click.Context):
+def _run(ctx: click.Context) -> RunResult:
     return Pipeline(ctx.obj["adapter"], ctx.obj["config"]).run()
 
 
@@ -300,17 +314,41 @@ def debate(
     fixtures: Optional[str],
     dry_run: Optional[bool],
 ) -> None:
-    """Print the contested-action briefs for the council to argue."""
+    """Print the contested-action briefs and roster charters for the council.
+
+    docs/debate-protocol.md §4: the Python layer prepares and enforces but
+    never calls a model — this prints each contested action's Round 0 brief
+    WITH its numbers (built from the run state) plus the full charters, so
+    the output can be fed to any agent runtime.
+    """
     _apply_overrides(ctx, config_path, adapter_name, fixtures, dry_run)
     result = _run(ctx)
-    actions = result.actions + result.proposals
-    contested_actions = contested(actions)
+    contested_actions = contested(result.actions + result.proposals)
     if not contested_actions:
         click.echo("None this run — no action drew opposition from the council.")
         return
     for item in contested_actions:
-        click.echo(brief(item.action))
+        context = build_debate_context(
+            item.action,
+            baselines=result.baselines,
+            campaigns=result.campaigns,
+            adsets=result.adsets,
+            ads=result.ads,
+            config=result.config,
+        )
+        click.echo(brief(item.action, context))
         click.echo("")
+    click.echo("## Round 1 — the roster, one charter per councillor")
+    click.echo("")
+    for archetype in AGENT_ROSTER:
+        click.echo(charter_block(archetype))
+        click.echo("")
+    click.echo(
+        "Each councillor receives exactly one brief above plus its own "
+        "charter, and returns position / argument / pre-emptive strike; the "
+        "ruling frame (RULING / AGAINST / BASIS / FLIP) closes the round "
+        "(docs/debate-protocol.md §2)."
+    )
 
 
 if __name__ == "__main__":

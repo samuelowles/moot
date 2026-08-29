@@ -19,15 +19,15 @@ def graduate(ad, config, market="NZ", seeded=False):
     return GraduateGate().evaluate(ad, make_ctx(config, market=market, baselines=baselines))
 
 
-VOLUME_OK = dict(
-    age_days=12,
-    trailing=Metrics(
+VOLUME_OK = {
+    "age_days": 12,
+    "trailing": Metrics(
         spend=300.0, purchases=5, purchase_value=4500.0, carts=38,
         outbound_ctr=0.014, impressions=20000, video_3s=5000,
     ),
-    recent=Metrics(spend=250.0, purchases=3, purchase_value=1500.0, carts=30),
-    lifetime=Metrics(spend=600.0, purchases=8),
-)
+    "recent": Metrics(spend=250.0, purchases=3, purchase_value=1500.0, carts=30),
+    "lifetime": Metrics(spend=600.0, purchases=8),
+}
 
 
 class TestPathA:
@@ -67,7 +67,7 @@ class TestPathA:
 
 
 class TestPathB:
-    def AD(self, cpc_carts):
+    def ad(self, cpc_carts):
         return make_ad(
             "gb", creative=CreativeType.VIDEO, age_days=12,
             trailing=Metrics(
@@ -81,12 +81,12 @@ class TestPathB:
     def test_return_path(self, config):
         # cpc = 300/17 ≈ 17.6 — above Path A's 8.5 but under the 1.80 × 10
         # ceiling, with recent return 5.2 ≥ 4.0 floor.
-        results = graduate(self.AD(17), config)
+        results = graduate(self.ad(17), config)
         assert len(results) == 1 and results[0].evidence["path"] == "B"
 
     def test_past_ceiling_is_proposed_not_executed(self, config):
         # cpc = 300/10 = 30 > 1.80 × 10 = 18 while return clears the floor.
-        results = graduate(self.AD(10), config)
+        results = graduate(self.ad(10), config)
         assert len(results) == 1
         assert results[0].evidence["proposed_only"] is True
 
@@ -107,7 +107,7 @@ class TestSpeculative:
         assert results[0].evidence["path"] == "speculative"
         assert results[0].evidence["speculative"] is True
 
-    def test_speculative_off_blocks(self, tmp_path, config):
+    def test_speculative_off_blocks(self, tmp_path):
         import yaml
         from conftest import CONFIG_PATH
 

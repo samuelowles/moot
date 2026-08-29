@@ -32,15 +32,48 @@ where = ["src"]
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP", "B"]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # import order
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # bugbear
+    "BLE", # blind-except (the write layer's broad excepts carry noqa + reason)
+    "SIM", # flake8-simplify
+    "RUF", # ruff-specific
+    "ARG", # unused arguments
+    "PTH", # use pathlib
+    "C4",  # comprehensions
+    "RET", # return hygiene
+    "TRY", # exception hygiene
+]
 # Optional[X] is the house style — matches the spec's vocabulary — so the
 # PEP 604 rewrite rules are turned off rather than mixed.
-ignore = ["UP007", "UP035", "UP037", "UP045"]
+# TRY003 (long messages inline in raise) is off deliberately: actionable
+# error text is the product here — every ConfigError message names the fix.
+# RUF001/002/003 (ambiguous unicode) are off: the em dash, § and × marks are
+# the established voice of this codebase and its docs — the gates.md section
+# citations they appear in must survive verbatim.
+ignore = ["UP007", "UP035", "UP037", "UP045", "TRY003",
+          "RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.per-file-ignores]
+# conftest pins THIS checkout's src/ ahead of any editable install, which
+# must run before the agon imports — E402 is the price of that guarantee.
+"tests/conftest.py" = ["E402"]
 
 [tool.mypy]
 python_version = "3.10"
 mypy_path = "src"
 packages = ["agon"]
+
+# PyYAML ships no inline types; types-PyYAML is a dev-only extra the runtime
+# should not require. Narrow override rather than a global ignore.
+[[tool.mypy.overrides]]
+module = "yaml"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

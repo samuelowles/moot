@@ -118,7 +118,7 @@ class TestValidation:
 
 
 class TestMarginWarning:
-    def test_no_warning_at_documented_defaults(self, caplog, tmp_path):
+    def test_no_warning_at_documented_defaults(self, caplog):
         # 65% margin ↔ 0.35 floor ratio: consistent per §2.
         with caplog.at_level(logging.WARNING):
             load_config(CONFIG_PATH)
@@ -202,7 +202,7 @@ class TestDemoteGates:
     def test_unknown_demote_key_rejected(self, tmp_path):
         payload = base_payload()
         payload["gates"]["demote"] = {"min_spned": 200}  # typo'd threshold
-        with pytest.raises(ConfigError, match="gates.demote"):
+        with pytest.raises(ConfigError, match=r"gates\.demote"):
             load_config(write_config(tmp_path, payload))
 
     def test_example_config_carries_demote_block(self, example_config):
@@ -224,7 +224,7 @@ class TestPixelValidation:
     def test_empty_pixel_id_rejected(self, tmp_path):
         payload = base_payload()
         payload["pixel"]["id"] = ""
-        with pytest.raises(ConfigError, match="pixel.id"):
+        with pytest.raises(ConfigError, match=r"pixel\.id"):
             load_config(write_config(tmp_path, payload))
 
     def test_example_config_pixel_loads(self, example_config):

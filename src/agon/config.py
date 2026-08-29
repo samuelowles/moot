@@ -59,6 +59,8 @@ MARGIN_CONSISTENCY_TOLERANCE = 0.025
 
 @dataclass(frozen=True)
 class AccountConfig:
+    """The ``account:`` block - identity and the write allowlist."""
+
     name: str = ""
     platform: str = "meta"
     allowed_account_ids: tuple[str, ...] = ()
@@ -68,6 +70,8 @@ class AccountConfig:
 
 @dataclass(frozen=True)
 class MarginConfig:
+    """The ``margin:`` block - sanity-checks the derived floors (§2)."""
+
     gross_margin_pct: float = 65.0
     platform_haircut_pct: float = 30.0
 
@@ -79,6 +83,8 @@ class MarginConfig:
 
 @dataclass(frozen=True)
 class WindowsConfig:
+    """The ``windows:`` block - every gate states which it judges (§1)."""
+
     recent_days: int = 7
     trailing_days: int = 30
     attribution: str = "7d_click"
@@ -86,6 +92,8 @@ class WindowsConfig:
 
 @dataclass(frozen=True)
 class MarketConfig:
+    """One ``markets:`` entry - baseline provenance and destination page."""
+
     code: str
     baseline_fallback: Optional[float] = None
     seed_from: Optional[str] = None
@@ -110,6 +118,8 @@ class StageEntry:
 
 @dataclass(frozen=True)
 class GraduateGates:
+    """The ``gates.graduate:`` block (§5)."""
+
     min_spend: float = 200.0
     min_purchases: int = 3
     min_ctr: float = 0.01  # decimal fraction — §5 note / §11.4
@@ -122,6 +132,8 @@ class GraduateGates:
 
 @dataclass(frozen=True)
 class KillGates:
+    """The ``gates.kill:`` block (§4)."""
+
     a_min_spend: float = 30.0
     b_min_spend: float = 60.0
     c_min_spend: float = 150.0
@@ -132,6 +144,8 @@ class KillGates:
 
 @dataclass(frozen=True)
 class FatigueGates:
+    """The ``gates.fatigue:`` block (§6)."""
+
     min_lifetime_purchases: int = 3
     min_age_days: int = 7
     min_spend: float = 150.0
@@ -152,6 +166,8 @@ class DemoteGates:
 
 @dataclass(frozen=True)
 class BudgetGates:
+    """The ``gates.budget:`` block (§8)."""
+
     step_pct: float = 25.0  # hard-capped at +30 in the write layer — §8
     down_pct: float = 30.0
     up_min_spend: float = 100.0
@@ -160,18 +176,24 @@ class BudgetGates:
 
 @dataclass(frozen=True)
 class BaselineGates:
+    """The ``gates.baseline:`` block (§3)."""
+
     min_spend: float = 100.0
     min_population: int = 4
 
 
 @dataclass(frozen=True)
 class GuardsConfig:
+    """The ``guards:`` block (§10)."""
+
     anomaly_guard_pct: float = 50.0
     breaker_return_floor_ratio: float = 0.35  # × target — §10
 
 
 @dataclass(frozen=True)
 class EnvelopeConfig:
+    """The ``envelope:`` block - what may run without a human (writes.md)."""
+
     authorized: frozenset[str] = frozenset()
     forbidden: frozenset[str] = frozenset()
 
@@ -189,6 +211,8 @@ class EnvelopeConfig:
 
 @dataclass(frozen=True)
 class DestinationPolicy:
+    """The ``policy.destination:`` block the brand veto enforces."""
+
     require_patterns: tuple[str, ...] = ()
     forbid_patterns: tuple[str, ...] = ()
     require_tracking_params: bool = False
@@ -196,12 +220,16 @@ class DestinationPolicy:
 
 @dataclass(frozen=True)
 class NamingPolicy:
+    """The ``policy.naming:`` block - a flag, not a blocker."""
+
     pattern: Optional[str] = None
     duplicate_suffix: str = " - {stage}"
 
 
 @dataclass(frozen=True)
 class ReportingConfig:
+    """The ``reporting:`` block - where the report and audit trail go."""
+
     sinks: tuple[str, ...] = ("stdout",)
     audit_log: str = "reports/write-audit.jsonl"
 
@@ -369,7 +397,7 @@ def _parse_stages(raw: dict[str, Any]) -> dict[Stage, dict[str, StageEntry]]:
     return stages
 
 
-def _dataclass_from(cls: type, raw: Optional[dict[str, Any]], path: str) -> Any:
+def _dataclass_from(cls: type[Any], raw: Optional[dict[str, Any]], path: str) -> Any:
     """Build a gates dataclass from YAML, rejecting unknown keys with the
     accepted key list — a typo'd threshold silently reverting to default is
     exactly the drift §2 exists to prevent."""
@@ -421,6 +449,66 @@ def _validate_stage_map_markets(config: Config) -> None:
                 )
 
 
+def _resolve_thresholds(
+    gates: dict[str, Any], guards_raw: dict[str, Any]
+) -> tuple[dict[str, float], GuardsConfig]:
+    """§2 ratio resolution: defaults, then `gates.ratios` overrides, then the
+    `guards.breaker_return_floor_ratio` precedence rule.
+
+    The breaker ratio is config-addressable under `guards:` (§10), so it wins
+    over `gates.ratios.breaker_floor` — but ONLY when that guards key is
+    actually present; an explicit `gates.ratios.breaker_floor` override must
+    survive an unconfigured guards block.
+    """
+    # `gates.ratios` is optional: per-name overrides of the §2 ratio defaults.
+    # Not present in examples/config.example.yaml (which runs pure defaults).
+    ratio_overrides = _require_mapping(gates.get("ratios") or {}, "gates.ratios")
+    unknown = set(ratio_overrides) - set(DEFAULT_RATIOS)
+    if unknown:
+        raise ConfigError(
+            f"gates.ratios: unknown threshold name(s) {sorted(unknown)}; "
+            f"accepted: {sorted(DEFAULT_RATIOS)}"
+        )
+    ratios = dict(DEFAULT_RATIOS)
+    ratios.update({k: float(v) for k, v in ratio_overrides.items()})
+
+    breaker_override = guards_raw.get("breaker_return_floor_ratio")
+    guards = GuardsConfig(
+        anomaly_guard_pct=float(guards_raw.get("anomaly_guard_pct", 50.0)),
+        breaker_return_floor_ratio=float(
+            breaker_override
+            if breaker_override is not None
+            else DEFAULT_RATIOS["breaker_floor"]
+        ),
+    )
+    if breaker_override is not None:
+        ratios["breaker_floor"] = guards.breaker_return_floor_ratio
+    return ratios, guards
+
+
+def _parse_demote(gates: dict[str, Any], fatigue: FatigueGates) -> DemoteGates:
+    """§7's own keys, each defaulting to the §6 fatigue value it previously
+    borrowed — unknown keys rejected so a typo'd threshold cannot silently
+    revert to default (the drift §2 exists to prevent)."""
+    demote_raw = gates.get("demote")
+    if demote_raw is not None:
+        demote_raw = _require_mapping(demote_raw, "gates.demote")
+    known_demote = set(DemoteGates.__dataclass_fields__)
+    unknown_demote = set(demote_raw or {}) - known_demote
+    if unknown_demote:
+        raise ConfigError(
+            f"gates.demote: unknown key(s) {sorted(unknown_demote)}; accepted: "
+            f"{sorted(known_demote)}"
+        )
+    return DemoteGates(
+        min_spend=float((demote_raw or {}).get("min_spend", fatigue.min_spend)),
+        min_lifetime_purchases=int(
+            (demote_raw or {}).get("min_lifetime_purchases", fatigue.min_lifetime_purchases)
+        ),
+        min_age_days=int((demote_raw or {}).get("min_age_days", fatigue.min_age_days)),
+    )
+
+
 def load_config(path: str | Path) -> Config:
     """Load and validate a YAML config file into a :class:`Config`.
 
@@ -448,36 +536,9 @@ def load_config(path: str | Path) -> Config:
     stages = _parse_stages(_require_mapping(raw.get("stages", {}), "stages"))
 
     gates = _require_mapping(raw.get("gates", {}), "gates")
-    # `gates.ratios` is optional: per-name overrides of the §2 ratio defaults.
-    # Not present in examples/config.example.yaml (which runs pure defaults);
-    # documented here and in the module docstring.
-    ratio_overrides = gates.get("ratios") or {}
-    ratio_overrides = _require_mapping(ratio_overrides, "gates.ratios")
-    unknown = set(ratio_overrides) - set(DEFAULT_RATIOS)
-    if unknown:
-        raise ConfigError(
-            f"gates.ratios: unknown threshold name(s) {sorted(unknown)}; "
-            f"accepted: {sorted(DEFAULT_RATIOS)}"
-        )
-    ratios = dict(DEFAULT_RATIOS)
-    ratios.update({k: float(v) for k, v in ratio_overrides.items()})
-
-    guards_raw = _require_mapping(raw.get("guards", {}), "guards")
-    breaker_override = guards_raw.get("breaker_return_floor_ratio")
-    guards = GuardsConfig(
-        anomaly_guard_pct=float(guards_raw.get("anomaly_guard_pct", 50.0)),
-        breaker_return_floor_ratio=float(
-            breaker_override
-            if breaker_override is not None
-            else DEFAULT_RATIOS["breaker_floor"]
-        ),
+    ratios, guards = _resolve_thresholds(
+        gates, _require_mapping(raw.get("guards", {}), "guards")
     )
-    # The breaker ratio is config-addressable under `guards:` (§10), so it
-    # wins over `gates.ratios.breaker_floor` — but ONLY when that guards key
-    # is actually present; an explicit `gates.ratios.breaker_floor` override
-    # must survive an unconfigured guards block.
-    if breaker_override is not None:
-        ratios["breaker_floor"] = guards.breaker_return_floor_ratio
 
     margin_raw = _require_mapping(raw.get("margin", {}), "margin")
     margin = MarginConfig(
@@ -503,25 +564,8 @@ def load_config(path: str | Path) -> Config:
             "silently optimises against the wrong event (docs/writes.md §4)"
         )
 
-    # §7 keys default to the §6 fatigue values they previously borrowed.
     fatigue = _dataclass_from(FatigueGates, gates.get("fatigue"), "gates.fatigue")
-    demote_raw = gates.get("demote")
-    if demote_raw is not None:
-        demote_raw = _require_mapping(demote_raw, "gates.demote")
-    known_demote = set(DemoteGates.__dataclass_fields__)
-    unknown_demote = set(demote_raw or {}) - known_demote
-    if unknown_demote:
-        raise ConfigError(
-            f"gates.demote: unknown key(s) {sorted(unknown_demote)}; accepted: "
-            f"{sorted(known_demote)}"
-        )
-    demote = DemoteGates(
-        min_spend=float((demote_raw or {}).get("min_spend", fatigue.min_spend)),
-        min_lifetime_purchases=int(
-            (demote_raw or {}).get("min_lifetime_purchases", fatigue.min_lifetime_purchases)
-        ),
-        min_age_days=int((demote_raw or {}).get("min_age_days", fatigue.min_age_days)),
-    )
+    demote = _parse_demote(gates, fatigue)
 
     policy_raw = _require_mapping(raw.get("policy", {}), "policy")
     dest_raw = _require_mapping(policy_raw.get("destination", {}), "policy.destination")

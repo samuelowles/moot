@@ -323,11 +323,24 @@ Scale down:
     → decrease by budget_down_pct (default −30%) or pause
 
 Reserve reactivation:
-    Reserve campaign ACTIVE but its ad set paused, or delivering
-    < 50% of budget over 3 days
+    Reserve campaign ACTIVE but its ad set paused
     AND campaign return(trailing) >= 0.80 × T
     → reactivate the ad set
 ```
+
+> **Not implemented:** the reactivation trigger was originally specified to
+> include an ad set *delivering under 50% of its budget over 3 days*, as a
+> second signal alongside an outright pause. That limb needs a 3-day delivery
+> window the runtime does not currently pull — every other gate reads the
+> `recent` and `trailing` windows only — so it is documented here and absent
+> from the code rather than half-built. Reactivation fires on the paused-ad-set
+> condition alone.
+>
+> Adding it means adding a third window to the pull, which is a real cost for a
+> gate that fires rarely. If you implement it, note that a Reserve ad set
+> under-delivering while *not* paused is usually a bid-floor symptom rather than
+> a status problem, so the correct action may be a bid adjustment rather than a
+> reactivation.
 
 Hard rules:
 

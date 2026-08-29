@@ -71,7 +71,7 @@ class _StubSession:
         self.fail_insights = fail_insights
         self.calls: list[tuple[str, dict]] = []
 
-    def get(self, url, params=None, headers=None, timeout=None):
+    def get(self, url, params=None, **_kwargs):
         self.calls.append((url, dict(params or {})))
         listings = {
             "/campaigns": [CAMPAIGN_ROW],
@@ -93,13 +93,15 @@ class _StubSession:
         return _StubResponse({"data": []})
 
 
-@pytest.fixture()
+@pytest.fixture(autouse=True)
 def token(monkeypatch):
+    """Every MetaAdapter transport call needs a bearer token present — the
+    adapter refuses to guess credentials, so the whole module runs with one."""
     monkeypatch.setenv("META_ACCESS_TOKEN", "EAAtesttoken0000000000000")
 
 
 class TestInsightsFailure:
-    def test_failing_insights_is_a_gap_not_a_crash(self, token):
+    def test_failing_insights_is_a_gap_not_a_crash(self):
         """§10 breaker 2: one failing insights call must surface as
         pull_complete=False — never an AdapterError past the pipeline."""
         adapter = MetaAdapter(
@@ -112,7 +114,7 @@ class TestInsightsFailure:
         assert [c.id for c in snapshot.campaigns] == ["120000000000001"]
         assert snapshot.campaigns[0].recent is None
 
-    def test_failing_insights_yields_report_not_exception(self, token, config):
+    def test_failing_insights_yields_report_not_exception(self, config):
         """The documented report-only run: writes_allowed=False and a
         rendered report, not a traceback."""
         adapter = MetaAdapter(
@@ -125,7 +127,7 @@ class TestInsightsFailure:
         assert "# Agon run report" in report
         assert "URGENT" in report
 
-    def test_healthy_pull_completes(self, token):
+    def test_healthy_pull_completes(self):
         adapter = MetaAdapter(
             allowed_account_ids=(ACCOUNT,), session=_StubSession(fail_insights=False)
         )
@@ -168,7 +170,7 @@ class TestPaginationBackstops:
         adapter = MetaAdapter(allowed_account_ids=(ACCOUNT,))
         calls = {"n": 0}
 
-        def constant_cursor(path, params):
+        def constant_cursor(_path, _params):
             calls["n"] += 1
             return {
                 "data": [{"id": f"row{calls['n']}"}],
@@ -184,7 +186,7 @@ class TestPaginationBackstops:
         adapter = MetaAdapter(allowed_account_ids=(ACCOUNT,))
         calls = {"n": 0}
 
-        def fresh_cursors_forever(path, params):
+        def fresh_cursors_forever(_path, _params):
             calls["n"] += 1
             return {
                 "data": [{"id": f"row{calls['n']}"}],
@@ -202,7 +204,7 @@ class TestPaginationBackstops:
             {"data": [{"id": "a"}], "paging": {"cursors": {"after": "c1"}}},
             {"data": [{"id": "b"}], "paging": {"cursors": {}}},
         ]
-        adapter._get = lambda path, params: pages.pop(0)
+        adapter._get = lambda _path, _params: pages.pop(0)
         assert [r["id"] for r in adapter._get_all_pages(f"{ACCOUNT}/ads", {})] == ["a", "b"]
 
 
@@ -213,7 +215,7 @@ class TestLiveFieldRequests:
         adapter = MetaAdapter(allowed_account_ids=(ACCOUNT,))
         captured = {}
 
-        def capture(path, params):
+        def capture(_path, params):
             captured.update(params)
             return []
 
@@ -230,7 +232,7 @@ class TestLiveFieldRequests:
         adapter = MetaAdapter(allowed_account_ids=(ACCOUNT,))
         captured = {}
 
-        def capture(path, params):
+        def capture(_path, params):
             captured.update(params)
             return []
 
@@ -245,7 +247,7 @@ class TestLiveFieldRequests:
         only ever sends time_preset."""
         adapter = MetaAdapter(allowed_account_ids=(ACCOUNT,))
         captured = {}
-        adapter._get_all_pages = lambda path, params: captured.update(params) or []
+        adapter._get_all_pages = lambda _path, params: captured.update(params) or []
         adapter._insights("120000000000001", "recent")
         assert captured["time_preset"] == "last_7d"
         assert "time_range" not in captured
@@ -266,13 +268,13 @@ class TestProtocolConformance:
 
 
 class TestGetters:
-    def test_get_adset_reads_status(self, token):
+    def test_get_adset_reads_status(self):
         adapter = MetaAdapter(
             allowed_account_ids=(ACCOUNT,), session=_StubSession()
         )
         assert adapter.get_adset("as_nz_p1").effective_status == "ACTIVE"
 
-    def test_get_campaign_reads_budget(self, token):
+    def test_get_campaign_reads_budget(self):
         adapter = MetaAdapter(
             allowed_account_ids=(ACCOUNT,), session=_StubSession()
         )

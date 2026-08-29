@@ -20,6 +20,7 @@ NONE_THIS_RUN = "None this run"
 
 
 def _fmt_money(value: Optional[float]) -> str:
+    """Money at 2dp, or "—" — an unreported figure is absence, not zero."""
     if value is None:
         return "—"
     return f"{value:,.2f}"
@@ -102,6 +103,7 @@ def _scorecard(result: RunResult) -> str:
 
 
 def _action_line(action: Action) -> str:
+    """One action as a report bullet, rationale attached when it has one."""
     detail = f" — {action.rationale}" if action.rationale else ""
     return f"- `{action.verb}` → **{action.target_id}**{detail}"
 
@@ -152,31 +154,19 @@ def _resolutions(result: RunResult) -> str:
     return "\n".join(lines)
 
 
-def render_report(
-    result: RunResult,
-    dispatch: Optional[DispatchResult] = None,
-    previous: Optional[dict[str, Any]] = None,
-) -> str:
-    """The full run report as markdown."""
-    parts = ["# Agon run report", ""]
-    if result.guard.urgent:
-        parts.append("> ⚠ **URGENT** — a guard or circuit breaker tripped; "
-                     "no writes this run.")
-        parts.append("")
-    parts.append(_spend_header(result, previous))
-    parts += ["", _scorecard(result), "", _baselines(result), "", _resolutions(result)]
+def _outcome_sections(result: RunResult) -> list[str]:
+    """The Actions/Proposals/Watchlist/Already-dark/Guards blocks.
 
-    # An action downgraded to a proposal (envelope, ceiling, hard veto) is
-    # reported under Proposals — an Actions line that never executes is a
-    # report the operator stops trusting.
+    An action downgraded to a proposal (envelope, ceiling, hard veto) is
+    reported under Proposals — an Actions line that never executes is a
+    report the operator stops trusting. Empty sections print NONE_THIS_RUN so
+    a quiet run is distinguishable from a failed one.
+    """
     executable = [a for a in result.actions if a.authorized]
     downgraded = [a for a in result.actions if not a.authorized]
 
-    parts += ["", "## Actions"]
-    if executable:
-        parts += [_action_line(a) for a in executable]
-    else:
-        parts.append(NONE_THIS_RUN)
+    parts = ["", "## Actions"]
+    parts += [_action_line(a) for a in executable] if executable else [NONE_THIS_RUN]
 
     parts += ["", "## Proposals (never executed)"]
     if result.proposals or downgraded:
@@ -187,7 +177,8 @@ def render_report(
     parts += ["", "## Watchlist"]
     if result.watchlist:
         for entry in result.watchlist:
-            parts.append(f"- **{entry.entity_id}** — {entry.reasons[0] if entry.reasons else ''}")
+            parts.append(f"- **{entry.entity_id}** — "
+                         f"{entry.reasons[0] if entry.reasons else ''}")
     else:
         parts.append(NONE_THIS_RUN)
 
@@ -199,31 +190,36 @@ def render_report(
         parts.append(NONE_THIS_RUN)
 
     parts += ["", "## Guards"]
-    verdict = result.guard
-    parts.append(f"- writes allowed: **{verdict.writes_allowed}**")
-    if verdict.reasons:
-        parts += [f"- {reason}" for reason in verdict.reasons]
+    parts.append(f"- writes allowed: **{result.guard.writes_allowed}**")
+    if result.guard.reasons:
+        parts += [f"- {reason}" for reason in result.guard.reasons]
     else:
         parts.append("- no guard or breaker tripped")
+    return parts
 
-    if dispatch is not None:
-        parts += ["", "## Dispatch"]
-        counts: dict[str, int] = {}
-        for outcome in dispatch.outcomes:
-            counts[outcome.outcome] = counts.get(outcome.outcome, 0) + 1
-        parts.append(
-            "- " + (", ".join(f"{k}: {v}" for k, v in sorted(counts.items()))
-                    if counts else NONE_THIS_RUN)
-        )
-        if dispatch.audit_path is not None:
-            parts.append(f"- audit log: `{dispatch.audit_path}`")
 
-    # Compact JSON audit block: one line of machine-readable truth.
-    audit_block = {
+def _dispatch_section(dispatch: DispatchResult) -> list[str]:
+    """The dispatch outcome counts and where the audit trail landed."""
+    parts = ["", "## Dispatch"]
+    counts: dict[str, int] = {}
+    for outcome in dispatch.outcomes:
+        counts[outcome.outcome] = counts.get(outcome.outcome, 0) + 1
+    parts.append(
+        "- " + (", ".join(f"{k}: {v}" for k, v in sorted(counts.items()))
+                if counts else NONE_THIS_RUN)
+    )
+    if dispatch.audit_path is not None:
+        parts.append(f"- audit log: `{dispatch.audit_path}`")
+    return parts
+
+
+def _audit_block(result: RunResult) -> list[str]:
+    """The compact JSON audit block: one line of machine-readable truth."""
+    audit = {
         "daily_spend": result.daily_spend,
         "guard": {
-            "writes_allowed": verdict.writes_allowed,
-            "urgent": verdict.urgent,
+            "writes_allowed": result.guard.writes_allowed,
+            "urgent": result.guard.urgent,
         },
         "baselines": {
             m: {"value": b.value, "source": b.source, "population": b.population}
@@ -241,10 +237,30 @@ def render_report(
             if r.winner is not None
         ],
         "preflights": [
-            {"status": pf.status, "source_ad_id": pf.source_ad_id} for pf in result.preflights
+            {"status": pf.status, "source_ad_id": pf.source_ad_id}
+            for pf in result.preflights
         ],
     }
-    parts += ["", "```json", json.dumps(_round_floats(audit_block), default=str), "```", ""]
+    return ["", "```json", json.dumps(_round_floats(audit), default=str), "```", ""]
+
+
+def render_report(
+    result: RunResult,
+    dispatch: Optional[DispatchResult] = None,
+    previous: Optional[dict[str, Any]] = None,
+) -> str:
+    """The full run report as markdown."""
+    parts = ["# Agon run report", ""]
+    if result.guard.urgent:
+        parts.append("> ⚠ **URGENT** — a guard or circuit breaker tripped; "
+                     "no writes this run.")
+        parts.append("")
+    parts.append(_spend_header(result, previous))
+    parts += ["", _scorecard(result), "", _baselines(result), "", _resolutions(result)]
+    parts += _outcome_sections(result)
+    if dispatch is not None:
+        parts += _dispatch_section(dispatch)
+    parts += _audit_block(result)
     return "\n".join(parts)
 
 

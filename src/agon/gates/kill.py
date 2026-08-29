@@ -38,6 +38,37 @@ def _age_ok(ad: Ad, minimum_days: float) -> bool:
     return ad.age_days is not None and ad.age_days >= minimum_days
 
 
+def _concept_ads(ad: Ad, ctx: GateContext) -> list[Ad]:
+    """Every delivering ad carrying this concept (post ID) in this market."""
+    if ad.post_id is None:
+        return []
+    return [
+        other
+        for other in ctx.market_ads
+        if other.post_id == ad.post_id and other.market == ad.market
+    ]
+
+
+def _concept_aggregate(concept_ads: list[Ad]) -> tuple[int, list[int]]:
+    """Aggregate one concept's recent clicks and cart counts across its ads.
+
+    §11.2: only ads with a RECORDED value join each aggregate — a concept
+    whose every ad reports carts as absent (not zero) is unreadable on click
+    quality, not dead on it. Returns ``(outbound clicks, recorded cart
+    counts)``.
+    """
+    clicks = 0
+    carts: list[int] = []
+    for other in concept_ads:
+        if other.recent is None:
+            continue
+        if other.recent.outbound_clicks is not None:
+            clicks += other.recent.outbound_clicks
+        if other.recent.carts is not None:
+            carts.append(other.recent.carts)
+    return clicks, carts
+
+
 def _spend_at_least(metrics_spend: Optional[float], floor: float) -> bool:
     """Spend floor. Unknown spend fails closed — spend is the evidence base."""
     return metrics_spend is not None and metrics_spend >= floor
@@ -49,6 +80,7 @@ class KillGate:
     name = "kill"
 
     def evaluate(self, ad: Ad, ctx: GateContext) -> list[GateResult]:
+        """Every fired limb for one ad (the Gate protocol, in §4 order)."""
         if not isinstance(ad, Ad) or not delivering(ad):
             return []
         fired = (
@@ -271,21 +303,8 @@ class KillGate:
         """
         if ad.post_id is None:
             return []
-        concept_ads = [
-            other
-            for other in ctx.market_ads
-            if other.post_id == ad.post_id and other.market == ad.market
-        ]
-        clicks = sum(
-            a.recent.outbound_clicks
-            for a in concept_ads
-            if a.recent is not None and a.recent.outbound_clicks is not None
-        )
-        recorded_carts = [
-            a.recent.carts
-            for a in concept_ads
-            if a.recent is not None and a.recent.carts is not None
-        ]
+        concept_ads = _concept_ads(ad, ctx)
+        clicks, recorded_carts = _concept_aggregate(concept_ads)
         if not recorded_carts:
             # No ad in the concept recorded a cart count: absence is not the
             # zero this limb kills on.

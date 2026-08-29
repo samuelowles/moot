@@ -412,7 +412,7 @@ def _retirement_pair(source_id="ad_fatigue"):
 
 
 class _DuplicateFailure(FixtureAdapter):
-    def duplicate_post(self, *args, **kwargs):
+    def duplicate_post(self, *_args, **_kwargs):
         raise AdapterError("creative creation refused (test)")
 
 
@@ -504,7 +504,7 @@ class TestFailedVerify:
 
 
 class _PostIdMismatch(FixtureAdapter):
-    def duplicate_post(self, source_ad, *args, **kwargs):
+    def duplicate_post(self, source_ad, *_args, **_kwargs):
         raise PostIdMismatchError(
             f"duplicated ad carries post 'p_other', expected {source_ad.post_id!r}"
         )
@@ -542,7 +542,7 @@ class TestAuditRedaction:
         token = self.TOKEN
 
         class _Leaky(FixtureAdapter):
-            def set_status(self, *args, **kwargs):
+            def set_status(self, *_args, **_kwargs):
                 raise AdapterError(f"write failed: bearer {token} rejected")
 
         action = Action(

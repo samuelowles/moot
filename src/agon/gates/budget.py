@@ -9,17 +9,14 @@ module caps the *proposed* step too so the report never shows an illegal ask.
 
 from __future__ import annotations
 
-from typing import Union
+from typing import Any, Union
 
 from agon.gates.base import GateContext
-from agon.models import AdSet, Campaign, Decision, GateResult, Stage
+from agon.models import AdSet, Campaign, Decision, GateResult, Metrics, Stage
 
 # §8: never exceed +30% in a single step — auction mechanics (a larger step
 # resets the learning phase), not governance. Hard cap in code.
 BUDGET_STEP_HARD_CAP_PCT = 30.0
-
-# §8 reserve reactivation: delivering under this share of budget over 3 days.
-RESERVE_DELIVERY_SHARE = 0.50
 
 
 def clamp_step_pct(requested_pct: float) -> float:
@@ -35,6 +32,7 @@ class BudgetGate:
     def evaluate(
         self, entity: Union[Campaign, AdSet], ctx: GateContext
     ) -> list[GateResult]:
+        """§8 by entity kind: campaigns act, ad sets only report."""
         if isinstance(entity, Campaign):
             return self._campaign(entity, ctx)
         if isinstance(entity, AdSet):
@@ -51,6 +49,8 @@ class BudgetGate:
         return []
 
     def _scale_campaign(self, campaign: Campaign, ctx: GateContext) -> list[GateResult]:
+        """§8 up and down limbs on one Scale campaign. Up is capped here so
+        the report never shows an ask the write layer would refuse."""
         recent = campaign.recent
         if recent is None or recent.spend is None or recent.return_ is None:
             return []
@@ -86,38 +86,52 @@ class BudgetGate:
                     },
                 )
             ]
+        return self._scale_down(campaign, recent, evidence, ctx)
 
-        # Scale down: return < budget_down_trigger (0.53 × T) AND spend floor.
+    def _scale_down(
+        self,
+        campaign: Campaign,
+        recent: Metrics,
+        evidence: dict[str, Any],
+        ctx: GateContext,
+    ) -> list[GateResult]:
+        """Scale down: return < budget_down_trigger (0.53 × T) AND spend floor.
+
+        Cutting a loser is not scaling — decreases stay authorised whatever
+        the scale-up policy (§8)."""
+        budget = ctx.config.budget
         down_trigger = ctx.config.threshold("budget_down_trigger")  # §2
-        if ret < down_trigger and recent.spend >= budget.down_min_spend:
-            return [
-                GateResult(
-                    decision=Decision.BUDGET_DOWN,
-                    entity_id=campaign.id,
-                    reasons=[
-                        f"BUDGET_DOWN: Scale campaign return {ret:.2f} < "
-                        f"{down_trigger:.2f} with recent spend {recent.spend} ≥ "
-                        f"{budget.down_min_spend}. Decrease by "
-                        f"−{budget.down_pct:.0f}%. Cutting a loser is not "
-                        "scaling — decreases stay authorised whatever the "
-                        "scale-up policy (§8).",
-                    ],
-                    evidence={
-                        **evidence,
-                        "gate": "budget",
-                        "down_pct": budget.down_pct,
-                        "down_trigger": down_trigger,
-                    },
-                )
-            ]
-        return []
+        if recent.return_ is None or recent.spend is None:
+            return []
+        if not (recent.return_ < down_trigger and recent.spend >= budget.down_min_spend):
+            return []
+        return [
+            GateResult(
+                decision=Decision.BUDGET_DOWN,
+                entity_id=campaign.id,
+                reasons=[
+                    f"BUDGET_DOWN: Scale campaign return {recent.return_:.2f} < "
+                    f"{down_trigger:.2f} with recent spend {recent.spend} ≥ "
+                    f"{budget.down_min_spend}. Decrease by "
+                    f"−{budget.down_pct:.0f}%. Cutting a loser is not "
+                    "scaling — decreases stay authorised whatever the "
+                    "scale-up policy (§8).",
+                ],
+                evidence={
+                    **evidence,
+                    "gate": "budget",
+                    "down_pct": budget.down_pct,
+                    "down_trigger": down_trigger,
+                },
+            )
+        ]
 
     def _reserve_campaign(self, campaign: Campaign, ctx: GateContext) -> list[GateResult]:
         """§8 reserve reactivation: campaign ACTIVE with trailing return at or
-        above the up trigger → reactivate. The ad-set-paused / under-delivery
-        conditions are evaluated by the pipeline, which can see ad sets; this
-        limb fires only on the campaign-level return condition and is marked
-        conditional so the pipeline attaches it to a paused ad set."""
+        above the up trigger → reactivate. The paused-ad-set condition is
+        evaluated by the pipeline, which can see ad sets; this limb fires only
+        on the campaign-level return condition and the pipeline attaches it to
+        the paused ad set(s) it finds."""
         trailing = campaign.trailing
         up_trigger = ctx.config.threshold("budget_up_trigger")  # §2: 0.80 × T
         if trailing is None or trailing.return_ is None:

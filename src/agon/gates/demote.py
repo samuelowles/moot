@@ -20,6 +20,7 @@ class DemoteGate:
     name = "demote"
 
     def evaluate(self, ad: Ad, ctx: GateContext) -> list[GateResult]:
+        """The four absolute §7 conditions on one Scale ad."""
         if not isinstance(ad, Ad) or not delivering(ad):
             return []
         # §7 is the Scale → Reserve transition.
@@ -29,6 +30,10 @@ class DemoteGate:
         floor = ctx.config.threshold("fatigue_return_floor")  # §7 uses 0.71 × T
         demote = ctx.config.demote  # §7's own keys; default to the §6 values
 
+        if recent is None or lifetime is None:
+            # An unjudgeable ad is not demoted: unknown windows fail closed,
+            # exactly as the per-condition checks below would have.
+            return []
         unmet: list[str] = []
         if recent is None or recent.spend is None or recent.spend < demote.min_spend:
             unmet.append(

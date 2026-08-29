@@ -88,7 +88,7 @@ class TestLimbC1:
 
 
 class TestLimbC2:
-    def AD(self, value="150.0"):
+    def ad(self, value="150.0"):
         return make_ad(
             "c2", age_days=10,
             recent=Metrics(spend=200.0, purchases=2, purchase_value=float(value), carts=2),
@@ -98,7 +98,7 @@ class TestLimbC2:
         )
 
     def test_fires_uneconomic(self, config):
-        results = kill(self.AD(), make_ctx(config))
+        results = kill(self.ad(), make_ctx(config))
         c2 = [r for r in results if r.evidence.get("limb") == "C2"]
         assert c2, "C2 must fire below the stage floor with purchases on record"
         # return 0.75 < 0.35 × 5.64 = 1.974
@@ -107,7 +107,7 @@ class TestLimbC2:
     def test_evidence_carries_implied_cpa(self, config):
         # §4 C2: the gate evaluates the return form but MUST report the
         # implied CPA (aov ÷ stage floor).
-        results = kill(self.AD(), make_ctx(config))
+        results = kill(self.ad(), make_ctx(config))
         c2 = next(r for r in results if r.evidence.get("limb") == "C2")
         implied = c2.evidence["implied_cpa_max"]
         # trailing aov = 300/3 = 100; floor = 1.974 → implied ceiling ≈ 50.66

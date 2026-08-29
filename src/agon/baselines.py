@@ -13,8 +13,8 @@ from dataclasses import dataclass, field
 from math import ceil
 from typing import Any, Iterable, Optional
 
-from agon.config import Config
-from agon.models import AdSet, Stage
+from agon.config import Config, MarketConfig
+from agon.models import AdSet, Metrics, Stage
 
 logger = logging.getLogger(__name__)
 
@@ -70,13 +70,52 @@ def _candidate(adset: AdSet, market: str, min_spend: float) -> bool:
     return trailing.carts is not None and trailing.carts > 0
 
 
-def _top_quartile_slice(ranked: list[AdSet]) -> list[AdSet]:
+def _top_quartile_slice(
+    ranked: list[tuple[AdSet, Metrics]]
+) -> list[tuple[AdSet, Metrics]]:
     """The top ``max(1, ceil(n/4))`` entries of a return-ranked list (§3).
 
     ``max(1, ...)`` so a population of 1–4 still yields a baseline rather
     than an empty slice.
     """
     return ranked[: max(1, ceil(len(ranked) / 4))]
+
+
+def _seeded_baseline(
+    market: str,
+    market_cfg: MarketConfig,
+    population: int,
+    min_population: int,
+    seed_value: Optional[float],
+    config: Config,
+) -> MarketBaseline:
+    """The §3 seeded baseline: below population, so kill gates only this run.
+
+    ``seed_from`` outranks a configured ``baseline_fallback`` — the fallback
+    would silently re-enable promotion in a market that has not earned the
+    bar. With no run-provided seed value the analogue's configured fallback
+    stands in.
+    """
+    analogue = market_cfg.seed_from
+    if analogue is None:  # the caller checked; kept for the type checker
+        raise ValueError(f"market {market!r} has no seed_from")
+    if seed_value is None:
+        analogue_cfg = config.markets.get(analogue)
+        seed_value = analogue_cfg.baseline_fallback if analogue_cfg is not None else None
+    return MarketBaseline(
+        market=market,
+        value=float(seed_value) if seed_value is not None else None,
+        source="seeded",
+        population=population,
+        seeded_from=analogue,
+        evidence={
+            "reason": f"population {population} < {min_population}; "
+            f"seeded from analogue {analogue} (seed_from outranks a "
+            "configured baseline_fallback). Kill gates only this run "
+            "(docs/gates.md §3).",
+            "seed_value": seed_value,
+        },
+    )
 
 
 def compute_baseline(
@@ -96,30 +135,9 @@ def compute_baseline(
     candidates = [a for a in adsets if _candidate(a, market, config.baseline.min_spend)]
 
     if len(candidates) < min_population:
-        # §3: a market with BOTH seed_from and baseline_fallback seeds — a
-        # seeded market runs kill gates only, so it cannot graduate on a bar
-        # it has not earned. The fallback would silently re-enable promotion.
         if market_cfg is not None and market_cfg.seed_from is not None:
-            analogue = market_cfg.seed_from
-            if seed_value is None:
-                analogue_cfg = config.markets.get(analogue)
-                seed_value = (
-                    analogue_cfg.baseline_fallback if analogue_cfg is not None else None
-                )
-            return MarketBaseline(
-                market=market,
-                value=float(seed_value) if seed_value is not None else None,
-                source="seeded",
-                population=len(candidates),
-                seeded_from=analogue,
-                evidence={
-                    "reason": f"population {len(candidates)} < {min_population}; "
-                    f"seeded from analogue {analogue} (seed_from outranks a "
-                    "configured baseline_fallback). Kill gates only this run "
-                    "(docs/gates.md §3).",
-                    "seed_value": seed_value,
-                },
-            )
+            return _seeded_baseline(market, market_cfg, len(candidates), min_population,
+                                    seed_value, config)
         if market_cfg is not None and market_cfg.baseline_fallback is not None:
             return MarketBaseline(
                 market=market,
@@ -139,23 +157,35 @@ def compute_baseline(
         )
 
     # Rank by trailing return, descending; ad sets with undefined return sort
-    # last — they have value data absent, not value zero (§11.2).
+    # last — they have value data absent, not value zero (§11.2). Pairing each
+    # ad set with its (candidate-guaranteed) trailing window keeps the None
+    # handling in one place instead of re-checking it at every use below.
+    with_trailing = [
+        (adset, trailing)
+        for adset in candidates
+        if (trailing := adset.trailing) is not None
+    ]
     ranked = sorted(
-        candidates,
-        key=lambda a: (a.trailing.return_ is not None, a.trailing.return_ or 0.0),
+        with_trailing,
+        key=lambda item: (item[1].return_ is not None, item[1].return_ or 0.0),
         reverse=True,
     )
     quartile = _top_quartile_slice(ranked)
-    cpcs = [a.trailing.cost_per_cart for a in quartile]
-    if not cpcs or any(c is None for c in cpcs):
-        # cost_per_cart is None only when carts == 0, which the candidate
-        # filter already excludes — guard anyway, never gate on a None.
-        raise ValueError(f"market {market!r}: quartile slice has undefined cost_per_cart")
+    cpcs: list[float] = []
+    for _, trailing in quartile:
+        cpc = trailing.cost_per_cart
+        if cpc is None:
+            # cost_per_cart is None only when carts == 0, which the candidate
+            # filter already excludes — guard anyway, never gate on a None.
+            raise ValueError(
+                f"market {market!r}: quartile slice has undefined cost_per_cart"
+            )
+        cpcs.append(cpc)
     mean_cpc = sum(cpcs) / len(cpcs)
 
     # §3.2 — cart-rate band across the same top quartile. None entries (an ad
     # set with no outbound clicks) stay None inside the band rather than 0.
-    rates = [a.trailing.cart_rate for a in quartile]
+    rates = [trailing.cart_rate for _, trailing in quartile]
     band_low = min((r for r in rates if r is not None), default=None)
     band_high = max((r for r in rates if r is not None), default=None)
 
@@ -168,7 +198,7 @@ def compute_baseline(
         evidence={
             "quartile_size": len(quartile),
             "population": len(candidates),
-            "quartile_adset_ids": [a.id for a in quartile],
+            "quartile_adset_ids": [adset.id for adset, _ in quartile],
             "quartile_cost_per_cart": cpcs,
         },
     )
