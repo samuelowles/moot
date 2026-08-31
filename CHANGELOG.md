@@ -25,6 +25,29 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Claude Code plugin: six agents, two skills, three commands, two pre-dispatch
   hooks, and two scheduled-task templates.
 
+### Fixed (second review pass)
+- **Ad-set status writes against the live adapter**: dispatch passed the
+  display string `"ad set"` where the Meta adapter branches on `"adset"` to
+  resolve the owning account, so every `reserve.reactivate` (and any
+  `adset.pause`/`adset.activate`) failed closed with a misleading
+  account-resolution error. The §8 Reserve-reactivation capability could
+  never actually execute. The entity vocabulary is now a shared `Literal`
+  type, so the type checker pins it, and the account-resolution field
+  requests are unit-tested per entity type.
+- **Windows consoles**: the report's Δ / § / × crashed the CLI with a
+  `UnicodeEncodeError` on a legacy codepage (cp1252) before a single line
+  printed — the README quickstart died on stock Windows. The CLI now
+  re-encodes its own stdio as UTF-8, a cp1252-forcing journey test pins it,
+  and CI gained a Windows leg alongside Python 3.13.
+
+### Removed (second review pass)
+- Unused API surface: the Round 1/Round 3 brief renderers and the Python
+  copy of the opposition map (the plugin layer owns those prompts;
+  docs/agents.md owns the map), a parsed-but-never-consulted
+  `windows.attribution` config key (§11.8 holds attribution constant in the
+  adapter), the unread `reporting.sinks` key, an unused `Gate` protocol, and
+  four zero-caller helpers. Net ~190 lines.
+
 ### Fixed (pre-release hardening, after an independent review)
 - Budget clamp could be bypassed by supplying an amount instead of a
   percentage; the amount is now always recomputed from the current budget, and

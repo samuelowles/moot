@@ -1,6 +1,6 @@
 """Shared fixtures for the end-to-end suite.
 
-The 355 unit tests cover the Python runtime; these exercise the plugin layer
+The unit suite covers the Python runtime; these exercise the plugin layer
 the way Claude Code itself does — hooks as subprocesses fed a JSON PreToolUse
 payload on stdin, the CLI as a subprocess from an arbitrary working directory.
 Two real defects have already shipped in this layer and been caught by hand

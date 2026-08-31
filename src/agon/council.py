@@ -6,12 +6,12 @@ This module defines the roster of opposed mandates and marks the actions they
 would contest. It does NOT call an LLM: stances here are mechanical keyword
 positions, and the two HARD vetoes are enforced in code, not prose.
 
-The debate renderers — :func:`brief`, :func:`opening_brief` and
-:func:`adjudication_brief` — are what external LLM agents receive, one per
-round of docs/debate-protocol.md §2. Round 0 is shared and role-neutral: every
-councillor gets the same numbers, because a brief without numbers makes the
-protocol's own calibration criterion ("numbers appear in every argument")
-unreachable.
+The Round 0 renderers — :func:`brief` and :func:`charter_block` — are what
+external LLM agents receive (docs/debate-protocol.md §2); the later rounds
+live in the plugin layer, which owns the prompts. Round 0 is shared and
+role-neutral: every councillor gets the same numbers, because a brief without
+numbers makes the protocol's own calibration criterion ("numbers appear in
+every argument") unreachable.
 """
 
 from __future__ import annotations
@@ -159,18 +159,6 @@ ADJUDICATOR = Archetype(
     blind_spot="Can only adjudicate the arguments placed before it — an angle "
     "no councillor raises is invisible to the ruling.",
 )
-
-#: Every archetype's natural opponents (docs/agents.md, the opposition map).
-#: An agent nobody argues with is an agent whose blind spot goes unexamined,
-#: so Round 1's instruction names the opponents it should pre-emptively attack.
-OPPOSITION_MAP: dict[str, tuple[str, ...]] = {
-    "creative-architect": ("media-economist", "risk-officer", "brand-steward"),
-    "media-economist": ("creative-architect", "risk-officer", "scaling-operator"),
-    "risk-officer": ("creative-architect", "media-economist", "scaling-operator"),
-    "scaling-operator": ("media-economist", "risk-officer", "brand-steward"),
-    "brand-steward": ("creative-architect", "scaling-operator"),
-}
-
 
 @dataclass(frozen=True)
 class ContestedAction:
@@ -793,91 +781,3 @@ def charter_block(archetype: Archetype) -> str:
         f"- **Blind spot**: {archetype.blind_spot}",
     ]
     return "\n".join(lines)
-
-
-def _opponent_titles(archetype: Archetype) -> str:
-    """The natural opponents Round 1's pre-emptive strike should target."""
-    by_id = {a.id: a for a in AGENT_ROSTER}
-    titles = [by_id[i].title for i in OPPOSITION_MAP.get(archetype.id, ()) if i in by_id]
-    return ", ".join(titles) or "no mapped opponent"
-
-
-def opening_brief(
-    action: Action,
-    context: Optional[DebateContext],
-    archetype: Archetype,
-) -> str:
-    """Round 1: the shared brief plus exactly ONE archetype's charter.
-
-    Only this archetype's charter appears — a charter is a role assignment,
-    and the shared brief stays role-neutral. The instruction demands a
-    position, an argument through its own metrics, and a pre-emptive strike at
-    the opponent it can already name (docs/debate-protocol.md §2, Round 1).
-    """
-    return "\n".join(
-        [
-            brief(action, context),
-            "",
-            "---",
-            "",
-            "# Round 1 — your opening position",
-            "",
-            charter_block(archetype),
-            "",
-            "Argue only from your charter and the shared brief above. Return:",
-            "1. **Position** — execute, modify, defer, or reject, stated in "
-            "the first line.",
-            "2. **Argument** — through your own metrics, with numbers from "
-            "the brief.",
-            f"3. **Pre-emptive strike** — your natural opponents here are "
-            f"{_opponent_titles(archetype)}; attack the position you predict "
-            "they will take, on the mechanics, not a strawman.",
-            "",
-            "An agent that hedges has failed its brief; keep it sharp.",
-        ]
-    )
-
-
-def adjudication_brief(
-    action: Action,
-    context: Optional[DebateContext],
-    transcript: str,
-) -> str:
-    """Round 3: the shared brief, the full transcript, and the ruling frame.
-
-    The Adjudicator must rule, name who lost and why in this account's terms,
-    and state the number that would flip it — and may not overrule a hard veto
-    or invent an action no gate proposed (docs/debate-protocol.md §2, Round 3).
-    """
-    return "\n".join(
-        [
-            brief(action, context),
-            "",
-            "---",
-            "",
-            "# Round 3 — the ruling",
-            "",
-            "## Transcript",
-            "",
-            transcript.strip() or "(empty — Round 1 produced unanimity)",
-            "",
-            "## Ruling frame",
-            "",
-            "For this contested action, return:",
-            "",
-            "```",
-            "RULING     execute | modify | defer | reject",
-            "AGAINST    which archetype lost, and why — in terms of this",
-            "           account's stage, target and runway",
-            "BASIS      the gate evidence and the argument that carried it",
-            "FLIP       the specific signal, with a number, that would reverse this",
-            "```",
-            "",
-            "Constraints:",
-            '- You must rule. "Both have merit" is a failed adjudication.',
-            "- You may not overrule a hard veto or a circuit breaker.",
-            "- You may not invent an action no gate proposed.",
-            "- The mechanical layer runs regardless of your ruling: hard",
-            "  vetoes, then guards, then the envelope.",
-        ]
-    )

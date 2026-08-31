@@ -13,8 +13,10 @@ and a subcommand value wins when both levels supply one.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -43,6 +45,17 @@ GUARD_EXIT_CODE = 2
 
 # .env.example documents META_GRAPH_VERSION; the adapter default matches.
 ENV_GRAPH_VERSION = "META_GRAPH_VERSION"
+
+
+def _force_utf8_stdio() -> None:
+    """The report carries Δ / § / × — a console in a legacy codepage
+    (Windows cp1252) must not turn the house voice into a UnicodeEncodeError.
+    Re-encode both streams as UTF-8 where the runtime allows it."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            with contextlib.suppress(Exception):
+                reconfigure(encoding="utf-8")
 
 
 def _build_adapter(meta: bool, fixtures: str | None, config: Config):
@@ -86,6 +99,7 @@ def main(
     dry_run: bool,
 ) -> None:
     """Agon — adversarial autopilot for Meta Ads accounts."""
+    _force_utf8_stdio()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     try:
         config = load_config(config_path)

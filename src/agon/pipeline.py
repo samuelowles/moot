@@ -916,8 +916,3 @@ class Pipeline:
             campaigns=campaigns,
             adsets=adsets,
         )
-
-
-def run_pipeline(adapter: AdPlatformAdapter, config: Config) -> RunResult:
-    """Convenience entry point used by the CLI."""
-    return Pipeline(adapter, config).run()

@@ -28,6 +28,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+from collections import deque
 from pathlib import Path
 
 # A plan is considered "seen" when `agon plan` has run in this session. The
@@ -82,7 +83,7 @@ def _plan_seen(transcript_path: str | None) -> bool:
         # Transcripts are JSONL and can be long; only the tail matters and a
         # read failure must never block the session.
         with path.open("r", encoding="utf-8", errors="replace") as handle:
-            tail = handle.readlines()[-400:]
+            tail = deque(handle, maxlen=400)
     except OSError:
         return False
     return any(PLAN_EVIDENCE.search(line) for line in tail)

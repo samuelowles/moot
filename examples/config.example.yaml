@@ -30,7 +30,8 @@ margin:
 windows:
   recent_days: 7
   trailing_days: 30
-  attribution: 7d_click
+  # Attribution is deliberately NOT configurable: §11.8 holds it constant
+  # (7d_click + 1d_view) across every comparison in a run.
 
 markets:
   NZ:
@@ -154,8 +155,5 @@ policy:
     duplicate_suffix: " - {stage}"
 
 reporting:
-  # Where the run report goes. `stdout` always works; others need credentials.
-  sinks:
-    - stdout
-    - file:reports/runs/{date}.md
+  # The report prints to stdout; only the append-only audit trail is configured.
   audit_log: reports/write-audit.jsonl

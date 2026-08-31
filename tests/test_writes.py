@@ -486,6 +486,11 @@ class TestFailedVerify:
         assert result.outcomes[0].outcome == DISPATCHED
         assert result.outcomes[0].verify["verified"] is True
         assert adapter.get_adset("as_nz_retired").effective_status == "ACTIVE"
+        # The live adapter resolves the owning account by branching on this
+        # exact token — the display string "ad set" once reached it and broke
+        # every ad-set status write against the real Graph API.
+        recorded = [w for w in adapter.writes if w["method"] == "set_status"]
+        assert recorded and recorded[0]["entity_type"] == "adset"
 
     def test_budget_readback_verified(self, config):
         adapter = FixtureAdapter(FIXTURES)

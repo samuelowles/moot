@@ -21,6 +21,7 @@ import requests
 from agon.adapters.base import (
     AdapterError,
     EntitySnapshot,
+    EntityType,
     IncompletePullError,
     PostIdMismatchError,
     WriteRefusedError,
@@ -203,7 +204,7 @@ class MetaAdapter:
                 f"({', '.join(self.allowed_account_ids)}) — write refused"
             )
 
-    def _account_of(self, entity_id: str, entity_type: str) -> str:
+    def _account_of(self, entity_id: str, entity_type: EntityType) -> str:
         """Resolve the owning account of an entity before mutating it."""
         if entity_type == "campaign":
             fields = "account_id"
@@ -482,7 +483,7 @@ class MetaAdapter:
     def set_status(
         self,
         entity_id: str,
-        entity_type: str,
+        entity_type: EntityType,
         status: str,
         *,
         dry_run: bool,

@@ -58,6 +58,15 @@ def test_plan_reports_baselines_without_writing(journey) -> None:
     assert "nothing dispatched" in result.stdout
 
 
+def test_plan_survives_a_legacy_windows_codepage(journey) -> None:
+    """The report carries Δ / § / × — a console stuck in cp1252 (stock
+    Windows) must not turn the README quickstart into a UnicodeEncodeError.
+    The CLI re-encodes its own streams as UTF-8 (cli._force_utf8_stdio)."""
+    result = journey("plan", env_extra={"PYTHONIOENCODING": "cp1252"})
+    assert result.returncode == 0, f"stderr={result.stderr!r}"
+    assert "§" in result.stdout, "the §-cited report should survive re-encoding"
+
+
 def test_baseline_reports_every_market(journey) -> None:
     result = journey("baseline")
     assert result.returncode == 0, f"stderr={result.stderr!r}"

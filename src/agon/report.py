@@ -262,12 +262,3 @@ def render_report(
         parts += _dispatch_section(dispatch)
     parts += _audit_block(result)
     return "\n".join(parts)
-
-
-def stage_spend_line(result: RunResult) -> str:
-    """One-line spend summary for CLI heads-up display."""
-    if not result.daily_spend:
-        return "no live spend recorded"
-    return ", ".join(
-        f"{stage}: {_fmt_money(value)}" for stage, value in sorted(result.daily_spend.items())
-    )

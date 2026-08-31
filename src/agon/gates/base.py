@@ -1,15 +1,17 @@
-"""Shared gate plumbing: the Gate protocol, the evaluation context, and the
-§7.1 auction check that gates every retirement.
+"""Shared gate plumbing: the evaluation context and the §7.1 auction check
+that gates every retirement.
 
 Each gate family module (kill/graduate/fatigue/demote/budget) implements the
-docs/gates.md section named in its docstring against this protocol.
+docs/gates.md section named in its docstring: a ``name`` attribute and an
+``evaluate(entity, ctx) -> list[GateResult]`` returning every result it
+fires, in documented limb order.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional, Protocol, runtime_checkable
+from typing import Any, Optional
 
 from agon.baselines import MarketBaseline
 from agon.config import Config
@@ -40,17 +42,6 @@ class GateContext:
     def kill_only_market(self) -> bool:
         """True when this market runs kill gates only (§3: seeded markets)."""
         return self.baseline().kill_gates_only
-
-
-@runtime_checkable
-class Gate(Protocol):
-    """A gate family. Returns every result it fires, in limb order."""
-
-    name: str
-
-    def evaluate(self, entity: Any, ctx: GateContext) -> list[GateResult]:
-        """Every result the gate fires, in its documented limb order."""
-        ...
 
 
 def delivering(entity: Ad) -> bool:

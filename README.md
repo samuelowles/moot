@@ -9,7 +9,7 @@ envelope decides what runs unattended versus what gets proposed to a human.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
-[![Tests](https://img.shields.io/badge/tests-483%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-481%20passing-brightgreen.svg)](tests/)
 [![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-8A63D2.svg)](plugin/)
 
 ```
@@ -50,13 +50,15 @@ _A fallback or seeded baseline in play is how gates rot — every market states 
 
 ### FATIGUE — NZ-20260725-VID-faded (`ad_fatigue`)
 - FATIGUE — proven ad decayed against its own history: cost per cart rose to
-  1.3× own trailing (28.57 vs 10.00); return fell below 0.6× own trailing.
+  1.3× own trailing (28.57 vs 10.00); return fell below 0.6× own trailing
+  (1.50 vs 8.00).
 - suppressed by precedence: **KILL** (§12; recorded so the losing decision stays visible)
 
 ### BUDGET_UP — NZ-20260806-VID-repriced (`ad_auction`)
 - Auction check §7.1: creative signal stable while CPM rose 1.67× and return
   fell — auction cost shift, not creative death. Retirement converted to a
   budget/bid proposal.
+- suppressed by precedence: **FATIGUE** (§12; recorded so the losing decision stays visible)
 ```
 
 Then `agon debate` to see which of those the council would argue about, and

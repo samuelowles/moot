@@ -14,3 +14,9 @@ build/
 reports/
 *.jsonl
 .DS_Store
+
+# local Claude Code / tooling state — never part of the published repo
+.claude/
+.claude-flow/
+.remember/
+/CLAUDE.md

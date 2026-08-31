@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from agon.adapters.base import AdPlatformAdapter, PostIdMismatchError
+from agon.adapters.base import AdPlatformAdapter, EntityType, PostIdMismatchError
 from agon.config import Config
 from agon.guards import GuardVerdict
 from agon.models import Action, Ad
@@ -477,7 +477,7 @@ def _execute_status_write(
     action: Action,
     adapter: AdPlatformAdapter,
     getter: Callable[[str], Any],
-    entity_type: str,
+    entity_type: EntityType,
     status: str,
 ) -> DispatchOutcome:
     """One status write followed by its read-back — the shared shape of every
@@ -571,7 +571,7 @@ def _execute(
         if verb == "adset.pause" or verb == "adset.activate" or verb == "reserve.reactivate":
             status = "PAUSED" if verb == "adset.pause" else "ACTIVE"
             return _execute_status_write(
-                action, adapter, adapter.get_adset, "ad set", status
+                action, adapter, adapter.get_adset, "adset", status
             )
 
         if verb == "campaign.pause":

@@ -87,7 +87,6 @@ class WindowsConfig:
 
     recent_days: int = 7
     trailing_days: int = 30
-    attribution: str = "7d_click"
 
 
 @dataclass(frozen=True)
@@ -203,11 +202,6 @@ class EnvelopeConfig:
             return False
         return verb in self.authorized
 
-    @property
-    def hard_cap_pct(self) -> float:
-        """The +30% budget-step hard cap is code, not config (§8)."""
-        return 30.0
-
 
 @dataclass(frozen=True)
 class DestinationPolicy:
@@ -230,7 +224,6 @@ class NamingPolicy:
 class ReportingConfig:
     """The ``reporting:`` block - where the report and audit trail go."""
 
-    sinks: tuple[str, ...] = ("stdout",)
     audit_log: str = "reports/write-audit.jsonl"
 
 
@@ -302,13 +295,9 @@ class Config:
                     return entry
         return None
 
-    def stage_entry(self, stage: Stage, market: str) -> Optional[StageEntry]:
+    def destination_for(self, stage: Stage, market: str) -> Optional[StageEntry]:
         """The (stage, market) cell, or None where the map has a structural gap."""
         return self.stages.get(stage, {}).get(market)
-
-    def destination_for(self, stage: Stage, market: str) -> Optional[StageEntry]:
-        """Alias of :meth:`stage_entry` — reads better at duplication sites."""
-        return self.stage_entry(stage, market)
 
 
 def _require_mapping(value: Any, path: str) -> dict[str, Any]:
@@ -581,7 +570,6 @@ def load_config(path: str | Path) -> Config:
         windows=WindowsConfig(
             recent_days=int(windows_raw.get("recent_days", 7)),
             trailing_days=int(windows_raw.get("trailing_days", 30)),
-            attribution=str(windows_raw.get("attribution", "7d_click")),
         ),
         markets=markets,
         stages=stages,
@@ -605,7 +593,6 @@ def load_config(path: str | Path) -> Config:
             duplicate_suffix=str(naming_raw.get("duplicate_suffix", " - {stage}")),
         ),
         reporting=ReportingConfig(
-            sinks=tuple(str(s) for s in reporting_raw.get("sinks", ("stdout",))),
             audit_log=str(reporting_raw.get("audit_log", "reports/write-audit.jsonl")),
         ),
     )

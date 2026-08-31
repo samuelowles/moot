@@ -13,9 +13,15 @@ pause, because the entity ID and its lifetime metrics are the audit anchor
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Literal, Protocol, runtime_checkable
 
 from agon.models import Ad, AdSet, Campaign
+
+#: The canonical entity vocabulary for status writes. Literal, not str: the
+#: live adapter resolves the owning account by branching on these exact
+#: tokens, and a display string like "ad set" once slipped through and broke
+#: every ad-set status write against the real Graph API.
+EntityType = Literal["ad", "adset", "campaign"]
 
 
 class AdapterError(Exception):
@@ -129,7 +135,7 @@ class AdPlatformAdapter(Protocol):
     def set_status(
         self,
         entity_id: str,
-        entity_type: str,
+        entity_type: EntityType,
         status: str,
         *,
         dry_run: bool,

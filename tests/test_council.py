@@ -10,13 +10,11 @@ from agon.council import (
     AGENT_ROSTER,
     CONCENTRATION_THRESHOLD,
     DebateContext,
-    adjudication_brief,
     brief,
     build_debate_context,
     charter_block,
     contested,
     hard_vetoes,
-    opening_brief,
     post_concentration,
 )
 from agon.models import (
@@ -241,58 +239,6 @@ class TestBriefs:
         )
         text = brief(concentrated, make_context())
         assert "55% of stage revenue" in text
-
-
-class TestOpeningBrief:
-    def test_contains_exactly_one_charter(self):
-        """Round 1 carries ONE archetype's charter — never another's. A
-        brief leaking a second charter leaks a role assignment into Round 0's
-        neutral ground."""
-        scaling = next(a for a in AGENT_ROSTER if a.id == "scaling-operator")
-        text = opening_brief(pause(), make_context(), scaling)
-        assert scaling.mandate in text
-        assert scaling.blind_spot in text
-        assert scaling.title in text
-        for other in AGENT_ROSTER:
-            if other is scaling:
-                continue
-            assert other.mandate not in text
-            assert other.blind_spot not in text
-        assert ADJUDICATOR.mandate not in text
-
-    def test_includes_shared_brief_and_instruction(self):
-        architect = AGENT_ROSTER[0]
-        text = opening_brief(pause(), make_context(), architect)
-        assert "Round 0 (shared)" in text          # the shared brief, embedded
-        assert "5.64" in text                      # ...with its numbers
-        assert "Round 1" in text
-        assert "Position" in text and "Pre-emptive strike" in text
-
-    def test_names_its_natural_opponents(self):
-        architect = AGENT_ROSTER[0]  # creative-architect
-        text = opening_brief(pause(), make_context(), architect)
-        assert "Media Economist" in text
-        assert "Risk Officer" in text
-
-    def test_contextless_opening_still_warns(self):
-        text = opening_brief(pause(), None, AGENT_ROSTER[0])
-        assert "NUMBERS UNAVAILABLE" in text
-
-
-class TestAdjudicationBrief:
-    def test_carries_transcript_and_ruling_frame(self):
-        text = adjudication_brief(
-            pause(), make_context(),
-            "ROUND 1\nThe Scaling Operator: execute...\nThe Risk Officer: reject...",
-        )
-        for frame in ("RULING", "AGAINST", "BASIS", "FLIP"):
-            assert frame in text
-        assert "The Scaling Operator: execute" in text  # the transcript verbatim
-
-    def test_states_the_constraints(self):
-        text = adjudication_brief(pause(), make_context(), "")
-        assert "overrule a hard veto" in text
-        assert "invent an action no gate proposed" in text
 
 
 class TestCharterBlock:

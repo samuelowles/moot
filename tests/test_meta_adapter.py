@@ -137,6 +137,47 @@ class TestInsightsFailure:
         assert snapshot.ads[0].post_id == "p_g1"  # page prefix stripped
 
 
+class TestStatusWriteAccountResolution:
+    """§6: every status write resolves its owning account first — and the
+    ad-set path must request ``account_id`` directly, not through an ``adset``
+    sub-field an ad set does not have. The display string "ad set" once
+    reached ``_account_of`` and made every ad-set status write fail closed."""
+
+    def _adapter_with_transport(self):
+        adapter = MetaAdapter(allowed_account_ids=(ACCOUNT,))
+        seen: dict[str, object] = {}
+        adapter._get = lambda path, params: (
+            seen.update(path=path, fields=params["fields"]) or {"account_id": ACCOUNT}
+        )
+        adapter._post = lambda path, params: seen.update(posted=path, **params) or {}
+        return adapter, seen
+
+    def test_adset_status_write_requests_account_id_directly(self):
+        adapter, seen = self._adapter_with_transport()
+        adapter.set_status("as_nz_p1", "adset", "ACTIVE",
+                           dry_run=False, validate_only=False)
+        assert seen["fields"] == "account_id"
+        assert seen["status"] == "ACTIVE"
+
+    def test_campaign_status_write_requests_account_id_directly(self):
+        adapter, seen = self._adapter_with_transport()
+        adapter.set_status("120000000000001", "campaign", "PAUSED",
+                           dry_run=False, validate_only=False)
+        assert seen["fields"] == "account_id"
+
+    def test_ad_status_write_resolves_through_its_adset(self):
+        adapter = MetaAdapter(allowed_account_ids=(ACCOUNT,))
+        seen: dict[str, object] = {}
+        adapter._get = lambda _path, params: (
+            seen.update(fields=params["fields"])
+            or {"adset": {"account_id": ACCOUNT}}
+        )
+        adapter._post = lambda _path, params: seen.update(**params) or {}
+        adapter.set_status("ad_graduate_a", "ad", "PAUSED",
+                           dry_run=False, validate_only=False)
+        assert seen["fields"] == "adset{account_id}"
+
+
 class TestAccountAllowlist:
     def test_bare_graph_id_matches_prefixed_allowlist(self):
         adapter = MetaAdapter(allowed_account_ids=(ACCOUNT,))

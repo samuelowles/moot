@@ -13,7 +13,12 @@ import json
 from pathlib import Path
 from typing import Any, Optional
 
-from agon.adapters.base import EntitySnapshot, IncompletePullError, PostIdMismatchError
+from agon.adapters.base import (
+    EntitySnapshot,
+    EntityType,
+    IncompletePullError,
+    PostIdMismatchError,
+)
 from agon.metrics import parse_insights_row
 from agon.models import Ad, AdSet, Campaign, CreativeType, Metrics, Stage
 
@@ -163,35 +168,23 @@ class FixtureAdapter:
         raise KeyError(f"fixture has no ad {ad_id!r}")
 
     def get_adset(self, adset_id: str) -> AdSet:
-        """One ad set — the mechanism-9 read-back for ad-set status writes."""
+        """One ad set — the mechanism-9 read-back for ad-set status writes.
+
+        Built by the same mapping the pull uses, so a verify read sees
+        exactly what the pull saw."""
         for s in self._data.get("adsets", []):
             if str(s.get("id")) == adset_id:
-                return AdSet(
-                    id=str(s["id"]),
-                    name=str(s.get("name", "")),
-                    status=s.get("status"),
-                    effective_status=s.get("effective_status") or s.get("status"),
-                    campaign_id=s.get("campaign_id"),
-                    market=s.get("market"),
-                    stage=_stage(s.get("stage")),
-                    daily_budget=s.get("daily_budget"),
-                )
+                return _adset(s)
         raise KeyError(f"fixture has no ad set {adset_id!r}")
 
     def get_campaign(self, campaign_id: str) -> Campaign:
-        """One campaign — the mechanism-9 read-back for budget writes."""
+        """One campaign — the mechanism-9 read-back for budget writes.
+
+        Built by the same mapping the pull uses, so a verify read sees
+        exactly what the pull saw."""
         for c in self._data.get("campaigns", []):
             if str(c.get("id")) == campaign_id:
-                return Campaign(
-                    id=str(c["id"]),
-                    name=str(c.get("name", "")),
-                    status=c.get("status"),
-                    effective_status=c.get("effective_status") or c.get("status"),
-                    account_id=c.get("account_id"),
-                    market=c.get("market"),
-                    stage=_stage(c.get("stage")),
-                    daily_budget=c.get("daily_budget"),
-                )
+                return _campaign(c, self._data.get("account_id"))
         raise KeyError(f"fixture has no campaign {campaign_id!r}")
 
     def list_ads_in_campaign(self, campaign_id: str) -> list[Ad]:
@@ -287,7 +280,7 @@ class FixtureAdapter:
     def set_status(
         self,
         entity_id: str,
-        entity_type: str,
+        entity_type: EntityType,
         status: str,
         *,
         dry_run: bool,
