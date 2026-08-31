@@ -9,7 +9,7 @@ envelope decides what runs unattended versus what gets proposed to a human.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
-[![Tests](https://img.shields.io/badge/tests-481%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-483%20passing-brightgreen.svg)](tests/)
 [![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-8A63D2.svg)](plugin/)
 
 ```
@@ -32,6 +32,8 @@ No credentials, no ad account, no network. The repo ships a demo account:
 pip install -e ".[dev]"
 agon plan --adapter fixture --fixtures tests/fixtures --config examples/config.example.yaml
 ```
+
+A slice of what prints:
 
 ```
 ## Baselines (docs/gates.md §3)
@@ -61,8 +63,9 @@ _A fallback or seeded baseline in play is how gates rot — every market states 
 - suppressed by precedence: **FATIGUE** (§12; recorded so the losing decision stays visible)
 ```
 
-Then `agon debate` to see which of those the council would argue about, and
-why. Nothing writes without `--confirm-write`, and
+Then `agon debate` prints the Round 0 briefs for the contested set — on this
+demo account, a demotion and both budget moves; the open-and-shut kills argue
+themselves. Nothing writes without `--confirm-write`, and
 [`AGON_READ_ONLY=1`](docs/writes.md) overrides even that.
 
 > **New to media buying?** [`docs/gates.md` §1](docs/gates.md#1-vocabulary)
@@ -238,7 +241,7 @@ plugin/            Claude Code plugin
   agents/          the six charters
   skills/          account-framework · adversarial-review
   commands/        /agon:plan · /agon:debate · /agon:schedule
-  hooks/           pre-dispatch naming and destination checks
+  hooks/           pre-dispatch checks: naming, destination, plan-before-write
   scheduled-tasks/ daily review (propose-only) · autopilot (execute-in-envelope)
 docs/              framework · gates · agents · debate-protocol · scheduling · writes · adr/
 tests/             pytest over fixtures — no network, no credentials

@@ -34,11 +34,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   never actually execute. The entity vocabulary is now a shared `Literal`
   type, so the type checker pins it, and the account-resolution field
   requests are unit-tested per entity type.
-- **Windows consoles**: the report's Δ / § / × crashed the CLI with a
-  `UnicodeEncodeError` on a legacy codepage (cp1252) before a single line
-  printed — the README quickstart died on stock Windows. The CLI now
+- **Windows consoles**: the report's Δ — a glyph cp1252 lacks — crashed the
+  CLI with a `UnicodeEncodeError` on a legacy codepage before a single line
+  printed: the README quickstart died on stock Windows. The CLI now
   re-encodes its own stdio as UTF-8, a cp1252-forcing journey test pins it,
   and CI gained a Windows leg alongside Python 3.13.
+
+- `windows:` and `reporting:` blocks now reject unknown keys like every gates
+  sub-block already did — a config still carrying the removed
+  `windows.attribution` or `reporting.sinks` fails loudly with the accepted
+  key list instead of silently ignoring the key.
 
 ### Removed (second review pass)
 - Unused API surface: the Round 1/Round 3 brief renderers and the Python

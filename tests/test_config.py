@@ -110,6 +110,20 @@ class TestValidation:
         with pytest.raises(ConfigError, match="unknown key"):
             load_config(write_config(tmp_path, payload))
 
+    def test_unknown_windows_key_rejected(self, tmp_path):
+        """A key the block no longer accepts (the removed `attribution`) must
+        fail loudly, not silently vanish — same drift rule as the gates."""
+        payload = base_payload()
+        payload.setdefault("windows", {})["attribution"] = "7d_click"
+        with pytest.raises(ConfigError, match="unknown key"):
+            load_config(write_config(tmp_path, payload))
+
+    def test_unknown_reporting_key_rejected(self, tmp_path):
+        payload = base_payload()
+        payload.setdefault("reporting", {})["sinks"] = ["stdout"]
+        with pytest.raises(ConfigError, match="unknown key"):
+            load_config(write_config(tmp_path, payload))
+
     def test_stage_map_markets_must_exist(self, tmp_path):
         payload = base_payload()
         payload["stages"]["proving"]["DE"] = {"campaign_id": "1"}

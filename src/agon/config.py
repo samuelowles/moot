@@ -560,17 +560,11 @@ def load_config(path: str | Path) -> Config:
     dest_raw = _require_mapping(policy_raw.get("destination", {}), "policy.destination")
     naming_raw = _require_mapping(policy_raw.get("naming", {}), "policy.naming")
 
-    reporting_raw = _require_mapping(raw.get("reporting", {}), "reporting")
-    windows_raw = _require_mapping(raw.get("windows", {}), "windows")
-
     config = Config(
         account=account,
         target=float(target),
         margin=margin,
-        windows=WindowsConfig(
-            recent_days=int(windows_raw.get("recent_days", 7)),
-            trailing_days=int(windows_raw.get("trailing_days", 30)),
-        ),
+        windows=_dataclass_from(WindowsConfig, raw.get("windows"), "windows"),
         markets=markets,
         stages=stages,
         pixel=pixel,
@@ -592,9 +586,7 @@ def load_config(path: str | Path) -> Config:
             pattern=naming_raw.get("pattern"),
             duplicate_suffix=str(naming_raw.get("duplicate_suffix", " - {stage}")),
         ),
-        reporting=ReportingConfig(
-            audit_log=str(reporting_raw.get("audit_log", "reports/write-audit.jsonl")),
-        ),
+        reporting=_dataclass_from(ReportingConfig, raw.get("reporting"), "reporting"),
     )
 
     _validate_stage_map_markets(config)
