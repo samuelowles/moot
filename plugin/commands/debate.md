@@ -14,14 +14,14 @@ moot debate --config ${1:-account.yaml}
 ```
 
 If that prints no contested actions, say so and stop. A manufactured debate is
-worse than no debate — report that the plan is uncontested and executes on
+worse than no debate; report that the plan is uncontested and executes on
 gates alone.
 
 Otherwise:
 
 1. Launch all five archetypes **in a single message** so they run concurrently.
-   Pass each its **full charter file** from `plugin/agents/` — never a
-   paraphrase — plus the identical brief. Keep the agent IDs.
+   Pass each its **full charter file** from `plugin/agents/`, never a
+   paraphrase, plus the identical brief. Keep the agent IDs.
 2. Cross-examine: send each agent its opponents' openings, all in one message.
 3. Hand the full transcript plus gate evidence to the `adjudicator`.
 4. Report the rulings. Each must name who lost, why, and what would flip it.

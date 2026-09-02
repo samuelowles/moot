@@ -10,9 +10,9 @@ Roster and mandates: [`agents.md`](agents.md). Gate arithmetic:
 
 ## 1. What gets debated
 
-Not everything. Most of a run is uncontested — an ad with zero carts and $200
-spent is not a matter of opinion, and putting it to a council wastes tokens and
-dilutes attention.
+Most of a run is uncontested. An ad with zero carts and $200 spent is not a
+matter of opinion, and putting it to a council wastes tokens and dilutes
+attention.
 
 `council.contested()` selects actions where **at least two archetypes would
 score in opposite directions**. In practice this is:
@@ -36,7 +36,7 @@ uncontested. A run with no contested actions is a normal run, not a broken one.
 ### Round 0 — Brief
 
 `council.brief(action)` assembles one brief per contested action. Every agent
-receives **exactly the same brief**: the entity, its metrics across both
+receives exactly the same brief: the entity, its metrics across both
 windows, the gate that fired with its evidence dict, the market baseline and
 its `baseline_source`, the stage's spend and return, the account target, and
 the concentration figure.
@@ -47,12 +47,12 @@ useless for adjudication.
 
 ### Round 1 — Opening positions, in parallel
 
-Launch the five archetypes **concurrently**, each with its charter from
+Launch the five archetypes concurrently, each with its charter from
 [`agents.md`](agents.md) and the brief. Each returns:
 
-1. **Position** — execute, modify, defer, or reject, stated in the first line.
-2. **Argument** — through its own metrics, with numbers from the brief.
-3. **Pre-emptive strike** — it knows who it is arguing against. Attack the
+1. **Position**: execute, modify, defer, or reject, stated in the first line.
+2. **Argument**: through its own metrics, with numbers from the brief.
+3. **Pre-emptive strike**: it knows who it is arguing against. Attack the
    position it predicts its natural opponent will take, on the mechanics, not a
    strawman.
 
@@ -64,18 +64,18 @@ steps later.
 
 Each agent receives its opponents' Round 1 outputs and returns:
 
-1. **Attack** — the weakest load-bearing claims in the opposing positions, each
+1. **Attack**: the weakest load-bearing claims in the opposing positions, each
    countered with its own metrics or the opponent's own admissions.
-2. **Concede with precision** — the one or two things the opponents got right,
-   stated exactly. Vague concessions are worthless; precise ones are how the
-   Adjudicator locates the real disagreement.
-3. **Revised position** — updated only where an attack or concession genuinely
+2. **Concede with precision**: the one or two things the opponents got right,
+   stated exactly. Vague concessions give the Adjudicator nothing; precise ones
+   locate the real disagreement.
+3. **Revised position**: updated only where an attack or concession genuinely
    changes it. Hold the line everywhere else.
 
 An agent that concedes everything is miscalibrated, and so is one that concedes
 nothing. Both are worth a rerun.
 
-Round 2 is skipped when Round 1 produced unanimity — which happens, and is a
+Round 2 is skipped when Round 1 produced unanimity, which happens and is a
 signal in itself.
 
 ### Round 3 — Ruling
@@ -101,20 +101,21 @@ hard veto blocks is discarded and reported.
 ## 3. Where the transcript goes
 
 Into the run report, and into the audit log alongside the action. Six months
-later the question is never "what did the account do" — the platform knows
+later the question is never "what did the account do"; the platform knows
 that. It is "why did we think that was a good idea", and the transcript is the
 only artefact that answers it.
 
 Store the ruling in full. Store openings and cross-examinations in summary,
-with the full text in the run's appendix. A ruling without its losing argument
-is not an audit trail; it is a press release.
+with the full text in the run's appendix. A ruling stored without its losing
+argument cannot be audited later; the losing argument is what a future reader
+needs to judge whether the ruling has aged.
 
 ---
 
 ## 4. Running it
 
 In Claude Code, `/moot:debate` runs a round against the current plan. The
-scheduled autopilot runs it automatically for contested actions only — see
+scheduled autopilot runs it automatically for contested actions only; see
 [`scheduling.md`](scheduling.md).
 
 Outside Claude Code, `moot debate --config … ` prints the briefs and the roster
@@ -129,13 +130,13 @@ or on a model behaving.
 
 The protocol is working when:
 
-- The five openings sound like **five different practitioners**, not one model
+- The five openings sound like five different practitioners, not one model
   wearing five hats. Similar-sounding openings mean the charters were
-  under-loaded — pass the full charter, never a one-line paraphrase.
-- Both sides land **real hits** and make **precise concessions**.
+  under-loaded; pass the full charter, never a one-line paraphrase.
+- Both sides land real hits and make precise concessions.
 - Numbers appear in every argument. An agent arguing from adjectives has
   nothing to adjudicate.
-- The Adjudicator **commits**, every time, and names a loser.
+- The Adjudicator commits, every time, and names a loser.
 - Roughly one action in five is contested. Far more means the gates are badly
   tuned; far fewer means `contested()` is too narrow and the council has become
   decorative.

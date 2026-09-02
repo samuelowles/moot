@@ -14,7 +14,7 @@ prompt.
 
 Interpolate `{{ACCOUNT_NAME}}`, `{{CONFIG_PATH}}`, `{{TARGET}}`, `{{MARKETS}}`,
 `{{REPORT_SINK}}` and `{{TIMEZONE}}` from the account config. Do not leave a
-placeholder unresolved — an unrendered `{{TARGET}}` in a live prompt produces
+placeholder unresolved: an unrendered `{{TARGET}}` in a live prompt produces
 an agent inventing its own target.
 
 Set the cron from the template's `suggested_local_time` converted to UTC for the
@@ -47,7 +47,7 @@ Flag two kinds of drift explicitly:
 Re-render both prompts from the current templates and config, and confirm the
 `gates_version` stamp moved.
 
-Do this after **any** gate change. A headless run cannot read this repository —
+Do this after any gate change. A headless run cannot read this repository:
 editing `docs/gates.md` or the config changes nothing about what the scheduled
 tasks do until their prompts are regenerated. An ADR that revises a threshold
 has changed the documentation and nothing else.

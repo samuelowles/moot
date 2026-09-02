@@ -10,20 +10,18 @@ rule.
 The short version is in the [README](../README.md#why-adversarial-specifically);
 the decision record, with the alternatives that were rejected, is
 [ADR-0005](adr/0005-adversarial-council-over-single-strategist.md). In one line:
-a single balanced agent returns the *average* of the mandates it holds, and the
-average is the one answer that is never right for a particular account on a
-particular day.
+a single balanced agent returns the average of the mandates it holds, and that
+average suits no particular account on any particular day.
 
-This document is the roster itself — what each agent watches, what it always
+This document is the roster itself: what each agent watches, what it always
 argues, and where its own mandate misleads it.
 
-Two things to keep in view while reading it. Each agent has **no
-responsibility for the others' concerns**: the Scaling Operator is never asked
-to be prudent, the Risk Officer never asked to be ambitious. And **two vetoes
-are not debatable** — the Risk Officer's guard veto and the Brand Steward's
-destination veto are enforced in `guards.py` and `council.py` respectively,
-not by prose in a charter. An agent that can be argued out of a safety rule
-does not have a safety rule.
+Two things hold throughout. Each agent has no responsibility for the others'
+concerns: the Scaling Operator is never asked to be prudent, the Risk Officer
+never asked to be ambitious. And two vetoes are not debatable: the Risk
+Officer's guard veto and the Brand Steward's destination veto are enforced in
+`guards.py` and `council.py` respectively, not by prose in a charter, so no
+argument in a round can dislodge them.
 
 ---
 
@@ -80,8 +78,8 @@ killed more bad restructures than any performance metric.
 | **Blind spot** | Mistakes a ceiling for a plateau. Buys revenue at declining margin and calls it growth. Will scale straight into fatigue and read the resulting decline as an auction problem. |
 | **Failure mode** | A large account with no profit in it. |
 
-It exists because the most common failure in a governed account is not a bad
-move — it is *no move*. Proposals generated, reviewed, agreed, and never
+It exists because the most common failure in a governed account is inaction
+rather than a bad move: proposals generated, reviewed, agreed, and never
 executed, while winners sit unharvested and losers keep spending. The Scaling
 Operator's job is to make that inaction expensive in the transcript.
 
@@ -120,15 +118,16 @@ Architect agree, and when they do, the Adjudicator should take it seriously.
 
 ### 6. The Adjudicator
 
-Not a debater. Reads the transcript, applies the gate arithmetic and the
-account's mandate, and issues a ruling per contested action.
+The Adjudicator does not debate. It reads the transcript, applies the gate
+arithmetic and the account's mandate, and issues a ruling per contested
+action.
 
 Its constraints are what make it useful:
 
-- **It must rule.** "Both have merit" is a failed adjudication — it is the
+- **It must rule.** "Both have merit" is a failed adjudication; it is the
   averaging the adversarial format exists to prevent.
 - **It must name who it ruled against, and why**, in terms of this account's
-  stage, target and runway — not in generalities.
+  stage, target and runway, not in generalities.
 - **It must state what would flip the ruling**: the specific signal, with a
   number.
 - **It cannot overrule a hard veto or a circuit breaker.**
@@ -139,9 +138,8 @@ Its constraints are what make it useful:
 
 ## The opposition map
 
-Every agent has at least two natural opponents. This is a design requirement,
-not an accident — an agent nobody argues with is an agent whose blind spot
-goes unexamined.
+Every agent has at least two natural opponents. That is a design requirement:
+without an opponent, an agent's blind spot goes unexamined.
 
 ```
                  Creative Architect
@@ -164,24 +162,24 @@ goes unexamined.
 ```
 
 If two agents produce similar arguments on a contested action, one of them has
-been under-briefed — rerun it with a sharper in-character instruction rather
-than accepting the agreement. Genuine consensus is valuable precisely because
-it is rare; manufactured consensus is worthless.
+been under-briefed; rerun it with a sharper in-character instruction rather
+than accepting the agreement. Genuine consensus between opposed mandates is a
+strong signal, and consensus this format produces easily is worth nothing.
 
 ---
 
-## What the council is not
+## Where the council sits
 
 It is not a decision-making committee, and the agents do not vote. Voting would
 reintroduce averaging through the back door, and it would let four advisory
 agents outnumber a mechanical safety rule.
 
-The gates decide eligibility. The guards decide whether anything may execute at
-all. The council argues the genuinely contested subset. The Adjudicator rules.
-The envelope decides whether the ruling may be acted on autonomously or must be
-proposed to a human.
+The gates decide eligibility; the guards decide whether anything may execute at
+all; the council argues the genuinely contested subset; the Adjudicator rules
+on it; the envelope decides whether the ruling may be acted on autonomously or
+must be proposed to a human.
 
-Five layers, and the debate is only one of them. An LLM being persuasive is
-never the last thing standing between a proposal and a live ad account.
+The debate is one of five layers, and an LLM being persuasive is never the
+last check between a proposal and a live ad account.
 
 See [`debate-protocol.md`](debate-protocol.md) for how a round actually runs.

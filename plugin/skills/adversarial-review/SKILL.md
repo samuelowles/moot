@@ -1,13 +1,13 @@
 ---
 name: adversarial-review
-description: Run an Moot council round — five opposed agents argue the contested moves in an ad-account plan, an adjudicator rules. Use when reviewing a plan before execution, when a scaling or retirement decision is genuinely contested, when the user asks to pressure-test a media-buying decision from opposing angles, or on "council", "debate this plan", "adversarial review".
+description: Run a Moot council round — five opposed agents argue the contested moves in an ad-account plan, an adjudicator rules. Use when reviewing a plan before execution, when a scaling or retirement decision is genuinely contested, when the user asks to pressure-test a media-buying decision from opposing angles, or on "council", "debate this plan", "adversarial review".
 ---
 
 # Adversarial Review
 
 Five agents with opposed mandates argue the contested subset of a plan; an
-adjudicator rules. The value is in the collision — keep the personas sharp and
-genuinely opposed until adjudication.
+adjudicator rules. The value is in the collision, so keep the personas sharp
+and genuinely opposed until adjudication.
 
 Full protocol: `docs/debate-protocol.md`. Roster: `docs/agents.md`.
 
@@ -19,7 +19,7 @@ moot debate --config <account.yaml> --adapter <meta|fixture>
 ```
 
 `moot debate` prints one brief per contested action. If it prints none, there
-is nothing to debate — the plan is uncontested and executes on gates alone.
+is nothing to debate: the plan is uncontested and executes on gates alone.
 Report that and stop; a manufactured debate is worse than no debate.
 
 Never debate every action. Roughly one in five should be contested. If far more
@@ -27,8 +27,8 @@ are, the gates are mistuned and that is the finding worth reporting.
 
 ## Step 2 — Openings, in parallel
 
-Launch all five in **one message** so they run concurrently. Keep the agent IDs
-— you need them for cross-examination.
+Launch all five in **one message** so they run concurrently. Keep the agent IDs;
+you need them for cross-examination.
 
 Each gets: its full charter file from `plugin/agents/`, the **identical** brief,
 and this instruction:
@@ -44,7 +44,8 @@ produces five agents that sound identical, which is the failure mode this whole
 structure exists to avoid.
 
 Every agent gets the same facts. Asymmetric briefs produce what looks like
-disagreement but is really different information — useless for adjudication.
+disagreement but is really different information, which is useless for
+adjudication.
 
 ## Step 3 — Cross-examination, in parallel
 
@@ -84,7 +85,7 @@ The round has failed if the five openings sound like one model wearing five
 hats. Symptoms: everyone reaching for the same metric, no one making a precise
 concession, adjectives where numbers were available, or an adjudication that
 splits the difference. Rerun the weak agent with a sharper instruction rather
-than accepting it — a hedged opening produces a hedged ruling three steps later.
+than accepting it; a hedged opening produces a hedged ruling three steps later.
 
 ## No Agent tool available?
 

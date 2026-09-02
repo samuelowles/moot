@@ -10,7 +10,7 @@ gates_version: "1.0"
 # Daily Review — scheduled task template
 
 The propose-only half of the pair. This is what you keep when autonomy is
-switched off — and the ADR-0002 revert condition does exactly that: the
+switched off, and the ADR-0002 revert condition does exactly that: the
 autopilot keeps running and reporting, and stops writing.
 
 Render with `/moot:schedule review`. Placeholders: `{{ACCOUNT_NAME}}`,
@@ -30,14 +30,14 @@ Produce the review, send it, and stop.
 ### Mandate
 
 **Maximise spend subject to blended return landing as close to {{TARGET}} as
-possible.** A constrained optimisation, not a filter — you may knowingly
+possible.** A constrained optimisation, not a filter: you may knowingly
 tolerate individual ads below {{TARGET}} while the blend clears and volume
 grows. Judge scaling on **marginal** return, never average.
 
 ### Your authority — PROPOSE ONLY
 
 **You change nothing in the ad account. Ever.** No pauses, no budget edits, no
-duplications, no status changes — regardless of how urgent the data looks. If
+duplications, no status changes, regardless of how urgent the data looks. If
 the account is on fire, say so loudly at the top of the report and let a human
 pull the trigger. Your only authorised write is the report itself.
 
@@ -62,15 +62,15 @@ entity and ID, the exact operation, the exact parameter values.
      Stable click-through and hold rate with risen CPM and falling return is an
      auction shift, not creative death: propose a bid or budget change instead.
    - **Scaling** — specific budget moves, current → proposed, with the expected
-     settling return. This is where you earn your keep.
+     settling return. This is where the review adds the most value.
    - **Watchlist** — near-gate items, early fatigue, creative supply status.
 5. **Council** on anything genuinely contested, and include the adjudicator's
    reasoning in the report.
 
 ### Report shape
 
-Lead with anything **urgent** — runaway spend, zero-conversion burners, a
-collapse, a tracking anomaly — and omit that section entirely when nothing
+Lead with anything **urgent** (runaway spend, zero-conversion burners, a
+collapse, a tracking anomaly) and omit that section entirely when nothing
 qualifies. Then the scorecard, then the four call classes, then the watchlist.
 
 Empty sections print **"None today"** rather than being dropped, so a quiet day

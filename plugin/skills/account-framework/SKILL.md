@@ -18,7 +18,7 @@ ladder. Full text: `docs/framework.md`. Arithmetic: `docs/gates.md`.
 
 Transitions: **KILL** (terminal pause), **GRADUATE** (Proving→Scale),
 **FATIGUE** (Proving→Reserve), **DEMOTE** (Scale→Reserve), **RECOVER**
-(Reserve→Scale), **BUDGET** (Scale campaign only — the single scaling lever).
+(Reserve→Scale), **BUDGET** (Scale campaign only: the single scaling lever).
 
 ## The three rules that make it work
 
@@ -34,8 +34,8 @@ Transitions: **KILL** (terminal pause), **GRADUATE** (Proving→Scale),
 
 ## Target-based movement
 
-The mandate is **maximise spend subject to blended return landing near target**
-— a constrained optimisation, not a filter. Individual ads may run below target
+The mandate is **maximise spend subject to blended return landing near target**:
+a constrained optimisation, not a filter. Individual ads may run below target
 if the portfolio blend clears and volume is growing.
 
 Judge scaling on **marginal** return, never average. Every threshold derives
@@ -52,9 +52,9 @@ mistake.
 **Decline against what?** Fatigue is measured against the ad's *own* trailing
 history, not the account's. Below floor without own-history decline = watchlist.
 
-**Weak hook, or a hook the landing page cannot cash?** High click-through with
-zero carts is more damning, not less. Cart rate is an independent kill limb,
-judged at concept level per market.
+**Weak hook, or a hook the landing page cannot deliver?** High click-through with
+zero carts is a worse signal, not a better one. Cart rate is an independent kill
+limb, judged at concept level per market.
 
 ## Duplication pre-flight — mandatory
 
@@ -67,11 +67,11 @@ judged at concept level per market.
 
 ## Parsing traps
 
-Values arrive as **strings**. Action arrays are **sparse** — a missing key means
+Values arrive as **strings**. Action arrays are **sparse**: a missing key means
 absent, not zero, so never synthesise zeros. `outbound_clicks_ctr` is a decimal
 fraction. Static creative has **no hook rate** (`None`, not `0.0`) and must
 never be killed on it. Paginate to exhaustion. Platform-reported revenue is for
-relative ranking only — haircut it and say so.
+relative ranking only; haircut it and say so.
 
 ## Commands
 

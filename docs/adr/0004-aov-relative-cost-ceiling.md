@@ -8,17 +8,18 @@ Two defects, discovered together in a live account.
 
 ### Defect 1 — stale conversions confer permanent immunity
 
-The two terminal mechanisms both required a **zero** over a **trailing 30-day
-window**: kill fired on zero carts or zero purchases; retirement required three
+The two terminal mechanisms both required a zero over a trailing 30-day
+window: kill fired on zero carts or zero purchases; retirement required three
 lifetime purchases before an ad was even *eligible*.
 
-An ad with one or two lifetime purchases satisfies neither. It is not a failure
-— it has non-zero conversions. It is not a proven winner — it is below the
-retirement floor. And because the window is thirty days, a single conversion
-from three weeks ago immunises an ad that has produced nothing for a week.
+An ad with one or two lifetime purchases satisfies neither: it is not a
+failure, since it has non-zero conversions, and it is not a proven winner,
+since it is below the retirement floor. And because the window is thirty
+days, a single conversion from three weeks ago immunises an ad that has
+produced nothing for a week.
 
-Perversely, an ad that performed *worse* — zero conversions — would have been
-killed on day two.
+An ad with zero conversions, which performed worse, would have been killed on
+day two.
 
 Observed in one market on one day:
 
@@ -57,12 +58,11 @@ A $150 flat ceiling kills four ads, three of them returning 4.87, 4.36 and
 acquisition. Paying $214 to win a $1,043 order is a good trade; paying $190 to
 win a $315 order is not.
 
-A flat ceiling is not a cost rule. It is a rule that penalises selling expensive
-things.
+A flat ceiling does not control cost; it penalises selling expensive things.
 
 ## Decision
 
-Add a third kill branch on a **rolling recent window**, with no lifetime
+Add a third kill branch on a rolling recent window, with no lifetime
 conversion condition:
 
 ```
@@ -80,12 +80,12 @@ The cost ceiling is expressed relative to what the ad actually sells:
 CPA_max = (that ad's own recent AOV) ÷ (its stage's return floor)
 ```
 
-which is algebraically a return floor, and is **implemented as one**. The gate
+which is algebraically a return floor, and is implemented as one. The gate
 evaluates the return form; the audit entry reports the implied CPA, so the
 trade stays legible to a human reading the log.
 
-Each term earns its place. The age condition ensures the attribution window has
-closed — nothing is judged before it can convert. The spend floor is roughly
+Each term is deliberate. The age condition ensures the attribution window has
+closed, so nothing is judged before it can convert. The spend floor is roughly
 0.7× the account's AOV floor: enough delivery for the result to be signal, and
 low enough that a small-spend ad never trips either branch. C1's zero is
 absolute, with no baseline dependency, so baseline drift cannot erode it. The
@@ -101,8 +101,8 @@ recovery and a kill does not.
 
 Modelled against the live pull that prompted this ADR: caught all four
 gate-gap ads via C1; caught one further ad via C2 at 1.78 return against a 2.0
-floor — which retirement also caught, exercising the precedence rule correctly;
-**zero false kills**, with no ad above 4.0 return caught at any tested
+floor, which retirement also caught, exercising the precedence rule correctly;
+zero false kills, with no ad above 4.0 return caught at any tested
 threshold.
 
 ## Consequences
@@ -111,7 +111,7 @@ threshold.
   Estimated recovery in the source account: ~$850/week in one market alone.
 - Kill remains terminal and irreversible. A killed ad must be relaunched as a
   new ad from the same post ID if it is later wanted.
-- Raises the risk of killing a slow-cycle or seasonal creative — mitigated by
+- Raises the risk of killing a slow-cycle or seasonal creative, mitigated by
   the spend floor, the age gate, and fatigue precedence.
 - Every kill-C action must report recent spend, purchases, return, AOV, the
   implied CPA and the lifetime purchase count, so the immunity that was
@@ -120,6 +120,6 @@ threshold.
 ## Revert if
 
 Kill-C terminates more than five ads in a single run, or a killed ad's post is
-graduated from another campaign within fourteen days — evidence the creative
+graduated from another campaign within fourteen days, evidence the creative
 was viable and the branch is mistuned. In either case pause the branch and
 raise the spend floor rather than lowering the return floors.

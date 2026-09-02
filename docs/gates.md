@@ -3,7 +3,7 @@
 The complete decision arithmetic. This document is the specification the
 runtime implements; `src/moot/gates/` is its executable form and
 `tests/test_gates_*.py` its proof. If the two disagree, that is a bug in one of
-them — say which in the issue.
+them; say which in the issue.
 
 Conceptual background is in [`framework.md`](framework.md).
 
@@ -50,16 +50,16 @@ absolute value that produced, which is where each ratio comes from.
 | `breaker_floor` | `0.35 × T` | 2.00 | §10 |
 
 Every ratio is overridable per account. Overriding one is ordinary tuning;
-overriding most of them means the target is wrong — fix the target instead.
+overriding most of them means the target is wrong: fix the target instead.
 
 > **Margin assumption.** The Proving Ground and Retarget floor of `0.35 × T`
 > assumes roughly 65% gross margin and a 30% haircut on platform-reported
 > return. Below that margin these floors are too low and must rise.
 > `config.margin.gross_margin_pct` records the account's actual figure and the
-> runtime **warns at load** when the configured floors are inconsistent with
+> runtime warns at load when the configured floors are inconsistent with
 > it. It does not silently correct them.
 
-Baseline-relative multiples are **not** target-derived — they describe
+Baseline-relative multiples are not target-derived; they describe
 dispersion within a market, not the account's return ambition:
 
 | Multiple | Default | Used by |
@@ -101,27 +101,27 @@ Rules:
   baseline.
 - **A new market has no baseline.** Until it reaches
   `baseline_min_population`, seed from the nearest configured analogue market
-  and run **kill gates only** — no graduations. A market cannot promote on a
-  bar it has not yet earned.
-- The run report states both value and `baseline_source` for every market. A
-  fallback baseline silently in play is how gates rot.
+  and run kill gates only; no graduations. A market cannot graduate on a
+  baseline it seeded from.
+- The run report states both value and `baseline_source` for every market, so a
+  fallback baseline in play is visible in the report.
 
 ### 3.2 Cart-rate band
 
-`cart_rate_band` is recomputed the same way — the min and max cart rate across
-the top-quartile ad sets — and used by §4 D. Never trust a hardcoded band; it
+`cart_rate_band` is recomputed the same way (the min and max cart rate across
+the top-quartile ad sets) and used by §4 D. Never trust a hardcoded band; it
 is account- and catalogue-specific.
 
 ---
 
 ## 4. KILL — terminal pause
 
-Applies at ad level, any stage. **Terminal**: a killed ad is not demoted, not
-recycled, not reversed by any other gate. Zero-cart creative has no warm
+Applies at ad level, any stage. **Terminal**: a killed ad is never demoted,
+recycled or reversed by any other gate. Zero-cart creative has no warm
 audience worth preserving.
 
-An ad is killed if **any** limb fires. All limbs require `effective_status`
-to be genuinely delivering — an ad whose parent ad set is paused matches many
+An ad is killed if any limb fires. All limbs require `effective_status`
+to be genuinely delivering: an ad whose parent ad set is paused matches many
 limbs but pausing it is a no-op. Filter those out and report them as
 already-dark.
 
@@ -155,17 +155,17 @@ age >= recent_window  AND  spend(recent) >= kill_c_min_spend
                       AND  return(recent) < kill_floor[stage]
 ```
 
-C1 and C2 exist because A and B both require a **zero over a trailing window**,
-which hands permanent immunity to an ad with one or two stale conversions: not
-a failure, not a proven winner, and structurally unkillable. Perversely, an ad
-that performed *worse* — zero conversions — dies on day two. C1 and C2 carry no
-lifetime-conversion condition, which is the entire point. See
+C1 and C2 exist because A and B both require a zero over a trailing window,
+which hands permanent immunity to an ad with one or two stale conversions: it
+is neither a failure nor a proven winner, and it becomes structurally
+unkillable. An ad with zero conversions, which performed worse, dies on day
+two. C1 and C2 carry no lifetime-conversion condition for that reason. See
 [ADR-0004](adr/0004-aov-relative-cost-ceiling.md).
 
 C2 is the AOV-relative ceiling from [`framework.md` §3.2](framework.md#32-cost-ceilings-are-relative-to-what-the-ad-sells),
 in its algebraic form. `CPA_max = aov ÷ kill_floor[stage]` and
 `return < kill_floor` are the same statement; the runtime evaluates the return
-form and **reports the implied CPA** so the trade is legible in the audit.
+form and reports the implied CPA so the trade is legible in the audit.
 
 ### D — Dead click quality (concept level, per market)
 
@@ -175,22 +175,22 @@ aggregate over all ads carrying concept C in market M, recent window:
  OR outbound_clicks >= 100  AND  cart_rate < cart_rate_floor    # default 1.5%
 ```
 
-Judged at **concept** level because the same creative runs across many ad sets
-and no single ad's click count is thick enough to read. Judged **per market**
+Judged at concept level because the same creative runs across many ad sets
+and no single ad's click count is thick enough to read. Judged per market
 because the same asset is routinely alive in one and dead in another. When it
 fires, every ad carrying that concept in that market is paused.
 
-This limb is independent of hook rate and click-through by design — it catches
-the opposite failure mode. High click-through with zero carts is the more
-damning signal, not the mitigating one.
+This limb is independent of hook rate and click-through by design: it catches
+the opposite failure mode. High click-through with zero carts is a worse
+signal, not a mitigating one.
 
 ### Starved ads
 
 ```
 age >= 4d  AND  spend(lifetime) < starved_max_spend      # default 5
 ```
-→ pause. Not a performance judgement: delivery has concentrated elsewhere and
-the ad is occupying a slot without producing signal.
+→ pause. This is not a performance judgement: delivery has concentrated
+elsewhere and the ad is occupying a slot without producing signal.
 
 ### Precedence
 
@@ -228,25 +228,26 @@ Notes:
 
 - **`outbound_ctr` arrives as a decimal fraction.** `0.0114` is 1.14%. The 1%
   floor is `0.01`. This has burned every implementation that assumed percent.
-- **Hook rate is skipped entirely for static creative**, not defaulted to zero.
-  Judging statics on hook rate wipes out the best performers in most accounts.
+- **Hook rate is skipped entirely for static creative.** It is not defaulted
+  to zero; judging statics on hook rate wipes out the best performers in most
+  accounts.
 - **Path B exists because a CPATC-only gate vetoes ads that are demonstrably
   printing revenue.** In one observed run it produced zero graduations while
   four ads sat between 5.86× and 9.95×. Its `1.80 × baseline` ceiling sits
-  *above* the `1.30 ×` kill threshold — deliberately. An ad can qualify on
+  deliberately *above* the `1.30 ×` kill threshold. An ad can qualify on
   return while being expensive per cart. That is a real, defensible trade, but
-  anything past `1.80 ×` is **proposed, not executed**.
+  anything past `1.80 ×` is proposed, not executed.
 
 **Action.** Run the §9 pre-flight, then duplicate by post ID into the
 destination market's current month cohort ad set (`YYYY-MM winners`), creating
-that ad set if absent, born `PAUSED`, then activate after verification. **Do
-not pause the source** — see [`framework.md` §2.1](framework.md#21-three-rules-that-make-the-ladder-work).
+that ad set if absent, born `PAUSED`, then activate after verification. Do
+not pause the source; see [`framework.md` §2.1](framework.md#21-three-rules-that-make-the-ladder-work).
 
 ---
 
 ## 6. FATIGUE — Proving Ground → Reserve
 
-A **proven** ad that decayed. All five conditions:
+A proven ad that decayed. All five conditions:
 
 ```
 1. purchases(lifetime) >= fatigue_min_lifetime_purchases     # default 3
@@ -265,7 +266,7 @@ against its own baseline goes on the **watchlist**, not to the Reserve.
 **Gated by the auction check (§7).**
 
 **Action.** §9 pre-flight → duplicate by post ID into the market's Reserve
-retired-winners ad set → **pause the source after the copy verifies ACTIVE**.
+retired-winners ad set → pause the source after the copy verifies ACTIVE.
 If the pre-flight skips the duplication because the post is already in the
 destination, still pause the source: the retirement is complete, only the copy
 was redundant.
@@ -281,8 +282,8 @@ AND purchases(lifetime) >= demote_min_lifetime_purchases    # default 3
 AND age >= demote_min_age                        # default 7d
 ```
 
-The age condition is not decoration. An ad judged before its attribution window
-closes reads far worse than it is — one observed retarget ad read 0.30× on day
+The age condition matters. An ad judged before its attribution window
+closes reads far worse than it is; one observed retarget ad read 0.30× on day
 three and settled at 8.46×.
 
 **Action.** As §6, then pause the Scale copy after verification.
@@ -303,7 +304,7 @@ and  return(recent) < return(trailing):
 Stable creative signal, risen CPM, falling return: the auction got more
 expensive, the creative did not die. Retiring a healthy asset because the
 auction repriced is the most costly mistake available to this system, which is
-why it is a hard gate and not a heuristic.
+why this is a hard gate rather than a heuristic.
 
 ---
 
@@ -331,10 +332,10 @@ Reserve reactivation:
 > **Not implemented:** the reactivation trigger was originally specified to
 > include an ad set *delivering under 50% of its budget over 3 days*, as a
 > second signal alongside an outright pause. That limb needs a 3-day delivery
-> window the runtime does not currently pull — every other gate reads the
-> `recent` and `trailing` windows only — so it is documented here and absent
-> from the code rather than half-built. Reactivation fires on the paused-ad-set
-> condition alone.
+> window the runtime does not currently pull; every other gate reads the
+> `recent` and `trailing` windows only. It is therefore documented here and
+> absent from the code rather than half-built. Reactivation fires on the
+> paused-ad-set condition alone.
 >
 > Adding it means adding a third window to the pull, which is a real cost for a
 > gate that fires rarely. If you implement it, note that a Reserve ad set
@@ -344,10 +345,10 @@ Reserve reactivation:
 
 Hard rules:
 
-- **Never exceed +30% in a single step.** This is auction mechanics — a larger
-  step resets the learning phase — not governance. Compounding daily steps are
-  fine.
-- **All ad-set budgets are frozen to autonomous increase**, in every stage. A
+- **Never exceed +30% in a single step.** This is auction mechanics, not
+  governance: a larger step resets the learning phase. Compounding daily steps
+  are fine.
+- **All ad-set budgets are frozen to autonomous increase** in every stage. A
   qualifying ad set is *reported*, never raised. Proving Ground budgets belong
   to the operator.
 - **Reserve campaign scale-up is proposed, not executed**, by default.
@@ -361,16 +362,16 @@ Hard rules:
 ## 9. Duplication pre-flight
 
 Mandatory before every duplication in §5, §6 and §7. Failing either check means
-**do not create the ad**.
+do not create the ad.
 
 ### A — Idempotency, on post ID
 
 1. Resolve the source's post ID (`creative{effective_object_story_id}`).
-2. Enumerate **every** ad in the destination *campaign* — all ad sets, all
+2. Enumerate every ad in the destination *campaign*: all ad sets, all
    statuses, paginated to exhaustion.
-3. If that post ID appears on any non-`ARCHIVED` ad there → **skip**, report
+3. If that post ID appears on any non-`ARCHIVED` ad there → skip, report
    `already-present` with the existing ad ID and status.
-4. If the existing copy is `PAUSED` → **still skip**. A paused copy usually
+4. If the existing copy is `PAUSED` → still skip. A paused copy usually
    means a prior demotion or a deliberate operator pause; re-creating it
    silently overrides a decision someone already made. Surface it as a
    proposal.
@@ -379,10 +380,10 @@ Never dedupe on name. See [`framework.md` §4](framework.md#4-post-id-is-the-uni
 
 ### B — Market routing, derived not inferred
 
-The destination market **must equal** the source ad's market, resolved by
+The destination market must equal the source ad's market, resolved by
 looking the source's `campaign_id` up in the configured stage map. Never select
 by name similarity or by defaulting. If the source campaign is unmapped, or the
-market has no destination campaign for the target stage, do not duplicate —
+market has no destination campaign for the target stage, do not duplicate;
 report it as a proposal.
 
 ### C — Carry the tracking parameters
@@ -403,7 +404,7 @@ if paused_spend_share > anomaly_guard_pct of trailing-recent pipeline spend:   #
         execute NOTHING. Report URGENT.
 ```
 
-Not a cap on the number of moves — there is none. A mass-kill signal indicates
+Not a cap on the number of moves; there is none. A mass-kill signal indicates
 bad data far more often than bad ads: a broken pull, an attribution lag, a
 partial page.
 
@@ -413,9 +414,9 @@ partial page.
 2. The data pull failed, was partial, or paginated inconsistently.
 3. The anomaly guard tripped.
 
-**An incomplete pull means no writes this run.** Report-only, flag the gap.
-This is the single most important operational rule in the system: every
-catastrophic autonomous action starts with acting confidently on partial data.
+**An incomplete pull means no writes this run.** The run is report-only and
+flags the gap. Acting confidently on partial data is the first step of every
+catastrophic autonomous action, which is why this rule outranks the rest.
 
 ---
 

@@ -16,7 +16,7 @@ data day: one that only proposes, one that executes inside an envelope.
 | Purpose | a human reads the account with coffee | close the proposal-to-execution loop |
 
 They are deliberately redundant. The Daily Review is what you keep when you
-turn autonomy off — and the revert condition in
+turn autonomy off, and the revert condition in
 [ADR-0002](adr/0002-standing-write-authorization.md) does exactly that: the
 autopilot keeps running and reporting, and stops writing.
 
@@ -39,15 +39,15 @@ Each generates a scheduled task whose prompt is built from
 `plugin/scheduled-tasks/*.md` with the account's config values interpolated.
 
 Verify with `/moot:schedule status`, which lists both tasks, their cron
-expressions, the local time each currently fires, and — importantly — the gate
-version each prompt was generated from.
+expressions, the local time each currently fires, and the gate version each
+prompt was generated from.
 
 ---
 
 ## 3. The prompt is the runtime authority
 
-This is the single most important operational fact about scheduled runs, and it
-is a trap that has cost real money.
+This is the most important operational fact about scheduled runs, and it is a
+trap that has cost real money.
 
 **A headless run cannot read your workspace.** It has no access to the repo,
 the config file on disk, or the docs. Everything it knows is in the prompt text
@@ -96,8 +96,8 @@ systems cause damage.
              Empty sections print "None this run".
 ```
 
-Step 2 is not optional and not a formality. **Every catastrophic autonomous
-action starts with acting confidently on partial data.** A single unpaginated
+Step 2 is not optional and not a formality. Every catastrophic autonomous
+action starts with acting confidently on partial data. A single unpaginated
 page looks exactly like a healthy account that suddenly stopped converting, and
 the gates will respond to it decisively.
 
@@ -110,7 +110,7 @@ handled for you.
 
 A task set to fire at 07:00 local during standard time will fire at 08:00 local
 once the clock shifts, and stay there until you retune it. This is easy to miss
-because the task keeps succeeding — it just runs at the wrong hour, which
+because the task keeps succeeding; it just runs at the wrong hour, which
 matters when the contract assumes a full previous day of data.
 
 Practical handling:
@@ -129,11 +129,11 @@ Practical handling:
 
 ## 6. Notification sends are not idempotent
 
-The report sink — Slack, email, a webhook — is usually a non-idempotent write.
+The report sink (Slack, email, a webhook) is usually a non-idempotent write.
 A blind retry after an uncertain send produces a duplicate report, and
 duplicate reports train operators to stop reading reports.
 
-If a send's outcome is unknown, **record it as unknown and do not retry**. The
+If a send's outcome is unknown, record it as unknown and do not retry. The
 audit log is the durable artefact; the notification is a convenience. Losing a
 notification costs an operator one lookup. Duplicating them costs their
 attention permanently.
@@ -164,5 +164,6 @@ envelope (the task auto-downgrades and flags); three consecutive runs below the
 breaker floor; or store-triangulated blended efficiency falling below target
 with paid identified as the driver.
 
-On revert the autopilot **keeps running and reporting and stops writing**. The
-worst possible response to a governance failure is to also lose visibility.
+On revert the autopilot **keeps running and reporting and stops writing**.
+Losing visibility on top of a governance failure would make the failure harder
+to diagnose.
