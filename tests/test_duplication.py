@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from conftest import RUN_NOW, fixture_adapter
 
-from agon.duplication import preflight
-from agon.models import Stage
+from moot.duplication import preflight
+from moot.models import Stage
 
 
 def run_preflight(subdir, config, dest_stage=Stage.SCALE):
@@ -112,7 +112,7 @@ class TestNoNameDedupe:
         would be the exact failure framework.md §4 warns about."""
         from pathlib import Path
 
-        source = Path(__file__).parent.parent / "src" / "agon" / "duplication.py"
+        source = Path(__file__).parent.parent / "src" / "moot" / "duplication.py"
         text = source.read_text(encoding="utf-8")
         # Ads are never compared by name: only `other.post_id` is read in the
         # dedupe loop. The two `.name == wanted` reads are AD-SET destination

@@ -13,7 +13,7 @@ terms of the account, not the implementation.
 
 **Where it fits**
 
-Which layer owns it? Agon is five layers on purpose (docs/agents.md, "What
+Which layer owns it? Moot is five layers on purpose (docs/agents.md, "What
 the council is not"): the gates decide eligibility, the guards decide whether
 anything may execute, the council argues the contested subset, the Adjudicator
 rules, the envelope decides autonomy. A proposal that puts a judgement in the
@@ -30,7 +30,7 @@ Check that your proposal can supply all three:
 
 **Non-goals**
 
-What this deliberately does NOT do. (Agon removes capabilities as often as it
+What this deliberately does NOT do. (Moot removes capabilities as often as it
 adds them — e.g. there is no delete verb and no spend cap, by design.)
 
 **An ADR needed?**

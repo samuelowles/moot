@@ -113,11 +113,11 @@ is not an audit trail; it is a press release.
 
 ## 4. Running it
 
-In Claude Code, `/agon:debate` runs a round against the current plan. The
+In Claude Code, `/moot:debate` runs a round against the current plan. The
 scheduled autopilot runs it automatically for contested actions only — see
 [`scheduling.md`](scheduling.md).
 
-Outside Claude Code, `agon debate --config … ` prints the briefs and the roster
+Outside Claude Code, `moot debate --config … ` prints the briefs and the roster
 charters so they can be fed to any agent runtime. The Python layer prepares and
 enforces; it never calls a model itself. That separation is deliberate: the
 safety properties of this system must not depend on which model is available,

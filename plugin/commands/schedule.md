@@ -1,10 +1,10 @@
 ---
-description: Create, inspect or regenerate the Agon scheduled tasks (daily review and pipeline autopilot).
+description: Create, inspect or regenerate the Moot scheduled tasks (daily review and pipeline autopilot).
 argument-hint: review | autopilot | status | regenerate
 allowed-tools: Bash, Read, Grep, Glob
 ---
 
-Manage the Agon scheduled tasks. Argument: `${1:-status}`.
+Manage the Moot scheduled tasks. Argument: `${1:-status}`.
 
 ## `review` / `autopilot`
 

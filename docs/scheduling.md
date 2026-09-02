@@ -1,6 +1,6 @@
 # Scheduling
 
-Agon runs unattended as two **Claude Code scheduled tasks** against the same
+Moot runs unattended as two **Claude Code scheduled tasks** against the same
 data day: one that only proposes, one that executes inside an envelope.
 
 ---
@@ -31,14 +31,14 @@ ones that eventually happen.
 In Claude Code, with the plugin installed:
 
 ```
-/agon:schedule review      # sets up the propose-only task
-/agon:schedule autopilot   # sets up the execute-in-envelope task
+/moot:schedule review      # sets up the propose-only task
+/moot:schedule autopilot   # sets up the execute-in-envelope task
 ```
 
 Each generates a scheduled task whose prompt is built from
 `plugin/scheduled-tasks/*.md` with the account's config values interpolated.
 
-Verify with `/agon:schedule status`, which lists both tasks, their cron
+Verify with `/moot:schedule status`, which lists both tasks, their cron
 expressions, the local time each currently fires, and — importantly — the gate
 version each prompt was generated from.
 
@@ -60,16 +60,16 @@ Two consequences:
    regenerated.
 2. **A gate change is not shipped until the prompt is regenerated.** An ADR that
    revises a threshold has changed the documentation and nothing else. Run
-   `/agon:schedule regenerate` and confirm the version stamp moved.
+   `/moot:schedule regenerate` and confirm the version stamp moved.
 
 The plugin defends this as far as it can: every generated prompt carries a
-`gates_version` stamp, `/agon:schedule status` compares it against the repo's
+`gates_version` stamp, `/moot:schedule status` compares it against the repo's
 current gate version, and a mismatch is reported as drift. It cannot fix drift
 for you, because regenerating a prompt is a decision about what the account
 should do, not a formatting operation.
 
-Where a runtime *can* reach the repo, prefer calling the CLI (`agon plan`,
-`agon apply --confirm-write`) over re-deriving the gates in prose. The prompt
+Where a runtime *can* reach the repo, prefer calling the CLI (`moot plan`,
+`moot apply --confirm-write`) over re-deriving the gates in prose. The prompt
 then carries only the run contract, and the arithmetic stays in one tested
 place.
 
@@ -116,7 +116,7 @@ matters when the contract assumes a full previous day of data.
 Practical handling:
 
 - Record the **intended local time** in the task description, not just the
-  cron. `/agon:schedule status` prints intended-vs-actual local time and flags
+  cron. `/moot:schedule status` prints intended-vs-actual local time and flags
   the gap.
 - Set a calendar reminder at each DST boundary for the account's timezone,
   covering both the shift and the return.

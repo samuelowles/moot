@@ -1,6 +1,6 @@
 """The agent charters vs the runtime roster — the drift catchers.
 
-The roster in ``src/agon/council.py`` and the charter files in
+The roster in ``src/moot/council.py`` and the charter files in
 ``plugin/agents/`` are two views of one council. They once drifted apart (the
 roster carried names no charter file defined), and nothing failed because no
 test compared them. These tests do, from both directions.
@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from agon.council import AGENT_ROSTER
+from moot.council import AGENT_ROSTER
 
 #: council.py defines the adjudicator separately from the five-way roster.
 ADJUDICATOR = "adjudicator"
@@ -73,7 +73,7 @@ def test_roster_ids_match_charter_files(plugin_root: Path) -> None:
     non_adjudicators = charter_ids - {ADJUDICATOR}
     roster_ids = {archetype.id for archetype in AGENT_ROSTER}
     assert non_adjudicators == roster_ids, (
-        "plugin/agents/ and agon.council.AGENT_ROSTER have drifted: "
+        "plugin/agents/ and moot.council.AGENT_ROSTER have drifted: "
         f"charters without a roster seat {sorted(non_adjudicators - roster_ids)}, "
         f"roster seats without a charter {sorted(roster_ids - non_adjudicators)}"
     )

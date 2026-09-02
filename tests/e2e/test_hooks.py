@@ -34,7 +34,7 @@ MALFORMED_PAYLOADS = [
 #: Matches the example config's naming convention (and the hook default).
 COMPLIANT_NAME = "NZ-20260829-VID-HOOKS-TEST"
 
-CONFIRM_WRITE_CMD = "agon apply --confirm-write --config account.yaml"
+CONFIRM_WRITE_CMD = "moot apply --confirm-write --config account.yaml"
 
 GUARD = "guard_writes.py"
 VALIDATE = "validate_ad_name.py"
@@ -111,7 +111,7 @@ def test_guard_blocks_confirm_write_with_no_plan_evidence(run_hook) -> None:
     assert result.returncode == 2, (
         f"expected block (2), got {result.returncode}; stderr={result.stderr!r}"
     )
-    assert "agon plan" in result.stderr, (
+    assert "moot plan" in result.stderr, (
         "the block reason must name the command to run first"
     )
 
@@ -122,7 +122,7 @@ def test_guard_allows_confirm_write_when_plan_seen_in_transcript(
     transcript = tmp_path / "transcript.jsonl"
     transcript.write_text(
         '{"role":"assistant","text":"pulling the snapshot"}\n'
-        '{"role":"assistant","text":"ran agon plan --config account.yaml"}\n'
+        '{"role":"assistant","text":"ran moot plan --config account.yaml"}\n'
         '{"role":"assistant","text":"reviewing the actions"}\n',
         encoding="utf-8",
     )
@@ -133,8 +133,8 @@ def test_guard_allows_confirm_write_when_plan_seen_in_transcript(
 
 
 @pytest.mark.parametrize("command", ["plan", "audit", "debate"])
-def test_guard_allows_read_only_agon_commands(run_hook, command: str) -> None:
-    result = run_hook(GUARD, _bash_payload(f"agon {command} --config account.yaml"))
+def test_guard_allows_read_only_moot_commands(run_hook, command: str) -> None:
+    result = run_hook(GUARD, _bash_payload(f"moot {command} --config account.yaml"))
     assert result.returncode == 0, (
         f"a read-only command must never be blocked; stderr={result.stderr!r}"
     )
@@ -187,7 +187,7 @@ def test_guard_unreadable_transcript_blocks_without_crash(
     run_hook, tmp_path: Path
 ) -> None:
     transcript = tmp_path / "locked.jsonl"
-    transcript.write_text("ran agon plan\n", encoding="utf-8")
+    transcript.write_text("ran moot plan\n", encoding="utf-8")
     transcript.chmod(0)  # no permission bits: reads now fail
     result = run_hook(GUARD, _bash_payload(CONFIRM_WRITE_CMD, str(transcript)))
     assert result.returncode == 2
@@ -198,12 +198,12 @@ def test_guard_unreadable_transcript_blocks_without_crash(
 
 
 def test_validate_allows_compliant_name(run_hook) -> None:
-    result = run_hook(VALIDATE, _bash_payload(f"agon apply --name {COMPLIANT_NAME}"))
+    result = run_hook(VALIDATE, _bash_payload(f"moot apply --name {COMPLIANT_NAME}"))
     assert result.returncode == 0, f"stderr={result.stderr!r}"
 
 
 def test_validate_blocks_non_compliant_name_and_shows_pattern(run_hook) -> None:
-    result = run_hook(VALIDATE, _bash_payload("agon apply --name summer-sale"))
+    result = run_hook(VALIDATE, _bash_payload("moot apply --name summer-sale"))
     assert result.returncode == 2
     assert "^[A-Z]{2,6}-[0-9]{8}" in result.stderr, (
         "the block reason must show the configured pattern so the name can be fixed"
@@ -211,7 +211,7 @@ def test_validate_blocks_non_compliant_name_and_shows_pattern(run_hook) -> None:
 
 
 def test_validate_blocks_collections_destination(run_hook) -> None:
-    command = f"agon apply --name {COMPLIANT_NAME} " \
+    command = f"moot apply --name {COMPLIANT_NAME} " \
               "--url https://shop.example.com/collections/all"
     result = run_hook(VALIDATE, _bash_payload(command))
     assert result.returncode == 2
@@ -219,14 +219,14 @@ def test_validate_blocks_collections_destination(run_hook) -> None:
 
 
 def test_validate_allows_products_destination(run_hook) -> None:
-    command = f"agon apply --name {COMPLIANT_NAME} " \
+    command = f"moot apply --name {COMPLIANT_NAME} " \
               "--url https://shop.example.com/products/widget"
     result = run_hook(VALIDATE, _bash_payload(command))
     assert result.returncode == 0, f"stderr={result.stderr!r}"
 
 
 def test_validate_ignores_commands_that_create_nothing(run_hook) -> None:
-    result = run_hook(VALIDATE, _bash_payload("agon plan --name 'freeform text'"))
+    result = run_hook(VALIDATE, _bash_payload("moot plan --name 'freeform text'"))
     assert result.returncode == 0, (
         "only apply/duplicate carry a name and destination worth checking"
     )
@@ -257,14 +257,14 @@ def test_validate_pattern_comes_from_the_config_file(
     config = _custom_config(tmp_path)
     strict = run_hook(
         VALIDATE,
-        _bash_payload(f"agon apply --config {config} --name {COMPLIANT_NAME}"),
+        _bash_payload(f"moot apply --config {config} --name {COMPLIANT_NAME}"),
     )
     assert strict.returncode == 2, (
         "the custom pattern ^[a-z]+$ must reject the uppercase default shape"
     )
     relaxed = run_hook(
         VALIDATE,
-        _bash_payload(f"agon apply --config {config} --name lowercase"),
+        _bash_payload(f"moot apply --config {config} --name lowercase"),
     )
     assert relaxed.returncode == 0, (
         f"the custom pattern ^[a-z]+$ must accept 'lowercase'; "
@@ -277,7 +277,7 @@ def test_validate_forbidden_fragment_comes_from_the_config_file(
 ) -> None:
     config = _custom_config(tmp_path)
     command = (
-        f"agon apply --config {config} --name lowercase "
+        f"moot apply --config {config} --name lowercase "
         "--url https://shop.example.com/forbidden-zone/x"
     )
     result = run_hook(VALIDATE, _bash_payload(command))
@@ -292,7 +292,7 @@ def test_validate_example_config_governs(run_hook) -> None:
     """A name valid under examples/config.example.yaml passes when that file
     is on the command line, exactly as the documented commands run."""
     command = (
-        "agon apply --config examples/config.example.yaml "
+        "moot apply --config examples/config.example.yaml "
         f"--name {COMPLIANT_NAME}"
     )
     result = run_hook(VALIDATE, _bash_payload(command))
@@ -300,9 +300,9 @@ def test_validate_example_config_governs(run_hook) -> None:
 
 
 def test_validate_without_config_flag_uses_defaults(run_hook) -> None:
-    compliant = run_hook(VALIDATE, _bash_payload(f"agon apply --name {COMPLIANT_NAME}"))
+    compliant = run_hook(VALIDATE, _bash_payload(f"moot apply --name {COMPLIANT_NAME}"))
     assert compliant.returncode == 0
-    rejected = run_hook(VALIDATE, _bash_payload("agon apply --name lowercase"))
+    rejected = run_hook(VALIDATE, _bash_payload("moot apply --name lowercase"))
     assert rejected.returncode == 2, (
         "with no --config the hook must fall back to its default pattern"
     )

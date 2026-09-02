@@ -1,6 +1,6 @@
 ---
 name: adversarial-review
-description: Run an Agon council round — five opposed agents argue the contested moves in an ad-account plan, an adjudicator rules. Use when reviewing a plan before execution, when a scaling or retirement decision is genuinely contested, when the user asks to pressure-test a media-buying decision from opposing angles, or on "council", "debate this plan", "adversarial review".
+description: Run an Moot council round — five opposed agents argue the contested moves in an ad-account plan, an adjudicator rules. Use when reviewing a plan before execution, when a scaling or retirement decision is genuinely contested, when the user asks to pressure-test a media-buying decision from opposing angles, or on "council", "debate this plan", "adversarial review".
 ---
 
 # Adversarial Review
@@ -14,11 +14,11 @@ Full protocol: `docs/debate-protocol.md`. Roster: `docs/agents.md`.
 ## Step 1 — Get the contested set
 
 ```bash
-agon plan   --config <account.yaml> --adapter <meta|fixture>
-agon debate --config <account.yaml> --adapter <meta|fixture>
+moot plan   --config <account.yaml> --adapter <meta|fixture>
+moot debate --config <account.yaml> --adapter <meta|fixture>
 ```
 
-`agon debate` prints one brief per contested action. If it prints none, there
+`moot debate` prints one brief per contested action. If it prints none, there
 is nothing to debate — the plan is uncontested and executes on gates alone.
 Report that and stop; a manufactured debate is worse than no debate.
 

@@ -1,5 +1,5 @@
 ---
-name: agon-pipeline-autopilot
+name: moot-pipeline-autopilot
 description: Scheduled daily run that executes pipeline moves inside the authorization envelope. Template for a Claude Code scheduled task — interpolate the account values, then create the task from the rendered prompt.
 type: scheduled-task-template
 authority: execute-in-envelope
@@ -10,7 +10,7 @@ gates_version: "1.0"
 # Pipeline Autopilot — scheduled task template
 
 Render this with the account's values and create a Claude Code scheduled task
-from the result. `/agon:schedule autopilot` does the rendering for you.
+from the result. `/moot:schedule autopilot` does the rendering for you.
 
 > **The rendered prompt is the runtime authority.** A headless run cannot read
 > this repository. Editing `docs/gates.md` changes nothing until the prompt is

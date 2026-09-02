@@ -10,7 +10,7 @@ Compute today's pipeline plan for the account configured at
 Run:
 
 ```bash
-agon plan --config ${1:-account.yaml}
+moot plan --config ${1:-account.yaml}
 ```
 
 Then read the report and add what the raw output cannot:
@@ -23,11 +23,11 @@ Then read the report and add what the raw output cannot:
    has stalled and Scale starves in about three weeks. Nothing in the
    performance data says this; you have to say it.
 3. **Name the contested set.** If actions are contested, say which and why, and
-   offer to run `/agon:debate`. Do not adjudicate them yourself here — that is
+   offer to run `/moot:debate`. Do not adjudicate them yourself here — that is
    what the council is for.
 4. **Check concentration.** If a single post carries more than 40% of stage
    revenue, raise it. The answer is more testing, not more budget.
 
 This command **never writes**. If the plan looks right and you want to execute
-it, that is `agon apply --confirm-write`, deliberately, after reading
+it, that is `moot apply --confirm-write`, deliberately, after reading
 `docs/writes.md` §5.

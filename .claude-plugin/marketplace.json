@@ -1,7 +1,7 @@
 {
-  "name": "agon",
+  "name": "moot",
   "owner": {
-    "name": "Agon contributors"
+    "name": "Moot contributors"
   },
   "metadata": {
     "description": "Adversarial multi-agent governance for paid social accounts",
@@ -9,7 +9,7 @@
   },
   "plugins": [
     {
-      "name": "agon",
+      "name": "moot",
       "source": "./plugin",
       "description": "Five opposed agents debate every contested ad-account move; target-derived gates decide eligibility; an envelope decides what may execute autonomously."
     }

@@ -1,7 +1,7 @@
 # Gate Reference
 
 The complete decision arithmetic. This document is the specification the
-runtime implements; `src/agon/gates/` is its executable form and
+runtime implements; `src/moot/gates/` is its executable form and
 `tests/test_gates_*.py` its proof. If the two disagree, that is a bug in one of
 them — say which in the issue.
 

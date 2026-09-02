@@ -12,8 +12,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from agon.gates.base import GateContext, delivering
-from agon.models import Ad, Decision, GateResult, Stage
+from moot.gates.base import GateContext, delivering
+from moot.models import Ad, Decision, GateResult, Stage
 
 # §4 limb D: a concept's aggregated click count must be at least this thick
 # before click quality is readable at all.

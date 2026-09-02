@@ -1,4 +1,4 @@
-# Agon account configuration — worked example.
+# Moot account configuration — worked example.
 #
 # This describes a fictional demo account ("Northwind Supply") with two markets
 # and a full three-stage ladder. Copy it, change the IDs, set your target.
@@ -9,7 +9,7 @@
 account:
   name: Northwind Supply
   platform: meta
-  # Agon refuses to write to any account not listed here. This is enforced in
+  # Moot refuses to write to any account not listed here. This is enforced in
   # the adapter, not just the config layer.
   allowed_account_ids:
     - act_100000000000001
@@ -21,7 +21,7 @@ account:
 target: 5.64
 
 margin:
-  # Used to sanity-check the derived kill floors at config load. Agon warns when
+  # Used to sanity-check the derived kill floors at config load. Moot warns when
   # the floors are inconsistent with this figure; it never silently corrects them.
   gross_margin_pct: 65
   # Applied when reporting platform-return as though it were true return.
@@ -68,7 +68,7 @@ stages:
     AU: { campaign_id: "120000000000009" }
 
 pixel:
-  # Set explicitly on every ad set Agon creates. Never rely on a connector
+  # Set explicitly on every ad set Moot creates. Never rely on a connector
   # default — a mis-inherited pixel silently optimises against the wrong event
   # and the damage is invisible for weeks.
   id: "400000000000001"
@@ -150,7 +150,7 @@ policy:
       - "/collections/"
     require_tracking_params: true
   naming:
-    # Ads Agon creates must match. Duplicates append the configured suffix.
+    # Ads Moot creates must match. Duplicates append the configured suffix.
     pattern: "^[A-Z]{2,6}-[0-9]{8}-(VID|SVID|CAR|IMG)-[A-Z0-9-]{2,12}-[A-Z0-9-]{2,12}$"
     duplicate_suffix: " - {stage}"
 

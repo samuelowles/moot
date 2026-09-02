@@ -31,7 +31,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _PLUGIN_ROOT = _REPO_ROOT / "plugin"
 
 _LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)[^)]*\)")
-_README_COMMAND = re.compile(r"/agon:(\w+)")
+_README_COMMAND = re.compile(r"/moot:(\w+)")
 
 #: Every document whose relative links are checked: README, docs, the ADRs,
 #: and the plugin's own markdown.
@@ -77,10 +77,10 @@ def test_commands_have_description(plugin_root: Path, frontmatter) -> None:
 def test_readme_referenced_commands_exist(repo_root: Path, plugin_root: Path) -> None:
     readme = (repo_root / "README.md").read_text(encoding="utf-8")
     referenced = set(_README_COMMAND.findall(readme))
-    assert referenced, "README.md references no /agon:<command> at all"
+    assert referenced, "README.md references no /moot:<command> at all"
     for word in sorted(referenced):
         assert (plugin_root / "commands" / f"{word}.md").is_file(), (
-            f"README.md references /agon:{word} but plugin/commands/{word}.md "
+            f"README.md references /moot:{word} but plugin/commands/{word}.md "
             "does not exist"
         )
 

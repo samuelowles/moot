@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from conftest import make_ad, make_ctx
 
-from agon.gates.base import auction_check
-from agon.gates.demote import DemoteGate
-from agon.gates.fatigue import FatigueGate, WatchGate
-from agon.models import CreativeType, Decision, Metrics, Stage
+from moot.gates.base import auction_check
+from moot.gates.demote import DemoteGate
+from moot.gates.fatigue import FatigueGate, WatchGate
+from moot.models import CreativeType, Decision, Metrics, Stage
 
 
 def simple_fatigue(recent_value=300.0, trailing_value=5600.0,
@@ -189,7 +189,7 @@ class TestDemoteOwnFloors:
     def test_demote_floor_of_200_blocks_the_demotion(self, config):
         from dataclasses import replace as dc_replace
 
-        from agon.config import DemoteGates
+        from moot.config import DemoteGates
 
         narrow = dc_replace(config, demote=DemoteGates(min_spend=200.0))
         assert DemoteGate().evaluate(self._ad(), make_ctx(narrow)) == []

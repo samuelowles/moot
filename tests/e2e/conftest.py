@@ -10,7 +10,7 @@ of failure impossible to ship again.
 
 ``tests/conftest.py`` (the parent conftest, loaded for this package too) pins
 this checkout's ``src/`` ahead of any editable install, so in-process imports
-of :mod:`agon.council` and :mod:`agon.writes` test this tree.
+of :mod:`moot.council` and :mod:`moot.writes` test this tree.
 """
 
 from __future__ import annotations
@@ -129,7 +129,7 @@ def run_hook(plugin_root: Path):
 
 @pytest.fixture(scope="session")
 def run_cli():
-    """Run `python -m agon.cli` as a subprocess from an arbitrary cwd.
+    """Run `python -m moot.cli` as a subprocess from an arbitrary cwd.
 
     ``cwd`` is required, not defaulted to the repo root — the journey tests
     exist to catch anything that only works because of the working directory.
@@ -146,11 +146,11 @@ def run_cli():
             p for p in (str(SRC_ROOT), env.get("PYTHONPATH")) if p
         )
         # The kill switch must be off unless a test sets it explicitly.
-        env.pop("AGON_READ_ONLY", None)
+        env.pop("MOOT_READ_ONLY", None)
         if env_extra:
             env.update(env_extra)
         return subprocess.run(
-            [sys.executable, "-m", "agon.cli", *args],
+            [sys.executable, "-m", "moot.cli", *args],
             capture_output=True,
             text=True,
             encoding="utf-8",

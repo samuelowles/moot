@@ -1,4 +1,4 @@
-"""The platform adapter protocol: every read and write Agon can perform.
+"""The platform adapter protocol: every read and write Moot can perform.
 
 Reads feed the pipeline; writes are the only way the system touches the
 account, and every write method takes ``dry_run`` and ``validate_only`` so
@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol, runtime_checkable
 
-from agon.models import Ad, AdSet, Campaign
+from moot.models import Ad, AdSet, Campaign
 
 #: The canonical entity vocabulary for status writes. Literal, not str: the
 #: live adapter resolves the owning account by branching on these exact
@@ -65,7 +65,7 @@ class EntitySnapshot:
 
 @runtime_checkable
 class AdPlatformAdapter(Protocol):
-    """Everything Agon can ask the platform to do."""
+    """Everything Moot can ask the platform to do."""
 
     # --- reads -----------------------------------------------------------------
     def fetch_entities(self) -> EntitySnapshot:

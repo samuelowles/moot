@@ -5,13 +5,13 @@ from __future__ import annotations
 import pytest
 from conftest import make_ad, make_ctx
 
-from agon.gates.graduate import GraduateGate
-from agon.models import CreativeType, Decision, Metrics
+from moot.gates.graduate import GraduateGate
+from moot.models import CreativeType, Decision, Metrics
 
 
 def graduate(ad, config, market="NZ", seeded=False):
     baselines = {}
-    from agon.baselines import MarketBaseline
+    from moot.baselines import MarketBaseline
 
     baselines[market] = MarketBaseline(
         market=market, value=10.0, source="seeded" if seeded else "computed"
@@ -111,7 +111,7 @@ class TestSpeculative:
         import yaml
         from conftest import CONFIG_PATH
 
-        from agon.config import load_config
+        from moot.config import load_config
 
         payload = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
         payload["gates"]["graduate"]["speculative_enabled"] = False
@@ -162,7 +162,7 @@ class TestHookGate:
 
 class TestScope:
     def test_scale_ad_is_not_graduated(self, config):
-        from agon.models import Stage
+        from moot.models import Stage
 
         ad = make_ad(
             "sc", stage=Stage.SCALE, campaign_id="120000000000004",

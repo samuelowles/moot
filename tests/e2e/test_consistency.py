@@ -17,13 +17,13 @@ from pathlib import Path
 import pytest
 import yaml
 
-from agon.writes import ALLOWED_VERBS
+from moot.writes import ALLOWED_VERBS
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 #: src modules whose §N citations are validated, one parameter each so a
 #: dangling pointer names its file.
-_SRC_FILES = sorted((_REPO_ROOT / "src" / "agon").rglob("*.py"))
+_SRC_FILES = sorted((_REPO_ROOT / "src" / "moot").rglob("*.py"))
 
 #: A citation names its document ("<doc>.md §N") or defaults to gates.md.
 _DOC_CITATION = re.compile(r"([a-z-]+\.md)\s*§(\d+(?:\.\d+)?)")
@@ -46,7 +46,7 @@ def test_every_authorized_verb_has_an_executor(example_config: Path) -> None:
     assert authorized, "the example config authorizes no verbs at all"
     missing = [verb for verb in authorized if verb not in ALLOWED_VERBS]
     assert not missing, (
-        f"envelope.authorized names verbs agon.writes.ALLOWED_VERBS cannot "
+        f"envelope.authorized names verbs moot.writes.ALLOWED_VERBS cannot "
         f"execute: {missing}"
     )
 

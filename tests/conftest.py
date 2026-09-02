@@ -13,17 +13,17 @@ from pathlib import Path
 
 import pytest
 
-# Pin THIS checkout's src/ ahead of any editable install of `agon` that may
+# Pin THIS checkout's src/ ahead of any editable install of `moot` that may
 # point at another worktree — the suite must test the tree it lives in.
 _SRC = Path(__file__).resolve().parent.parent / "src"
 if _SRC.is_dir() and str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from agon.adapters.fixture import FixtureAdapter
-from agon.baselines import MarketBaseline, compute_baselines
-from agon.config import load_config
-from agon.gates.base import GateContext
-from agon.models import Ad, CreativeType, Metrics, Stage
+from moot.adapters.fixture import FixtureAdapter
+from moot.baselines import MarketBaseline, compute_baselines
+from moot.config import load_config
+from moot.gates.base import GateContext
+from moot.models import Ad, CreativeType, Metrics, Stage
 
 TESTS_DIR = Path(__file__).parent
 FIXTURES = TESTS_DIR / "fixtures"

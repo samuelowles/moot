@@ -1,6 +1,6 @@
 # Security Policy
 
-Agon holds credentials that can spend money. Please read this before running it
+Moot holds credentials that can spend money. Please read this before running it
 against a live account, and before reporting an issue publicly.
 
 ## Reporting a vulnerability
@@ -17,7 +17,7 @@ Anything that could cause an **unauthorised write** to an ad account, or leak a
 credential:
 
 - A path that dispatches a write without `confirm_write`.
-- **Anything that routes around `AGON_READ_ONLY=1`.** This is the kill switch;
+- **Anything that routes around `MOOT_READ_ONLY=1`.** This is the kill switch;
   a bypass is the highest-severity class in this project.
 - An action executing outside the configured envelope instead of being
   downgraded to a proposal.
@@ -33,14 +33,14 @@ report into the open and impossible to move it back.
 
 ## The threat model
 
-Agon is a **local operator tool**. It assumes the machine running it is trusted
+Moot is a **local operator tool**. It assumes the machine running it is trusted
 and the person running it is authorised to manage the account. It is not a
 multi-tenant service, has no authentication of its own, and should not be
 exposed as a network service. If you wrap it in one, the wrapper owns
 authentication, authorisation and rate limiting entirely.
 
 The interesting boundary is not the network — it is between **model output and
-account writes**. Agon's design assumption is that a language model may at any
+account writes**. Moot's design assumption is that a language model may at any
 point be confidently wrong, prompt-injected through ad names or creative copy
 it reads, or simply hallucinating an entity ID. The mechanisms in
 [`docs/writes.md`](docs/writes.md) exist so that none of those produce an
@@ -74,16 +74,16 @@ Recommended handling:
   pipeline at the worst possible moment.
 - Grant the narrowest scopes that work: `ads_management`, `ads_read`, and
   `pages_read_engagement` for post-ID extraction.
-- Set `allowed_account_ids` to exactly the accounts Agon may touch. This is
+- Set `allowed_account_ids` to exactly the accounts Moot may touch. This is
   checked in the adapter on every write, independently of config validation.
-- Rotate on any suspicion. There is no state in Agon that a rotation breaks.
+- Rotate on any suspicion. There is no state in Moot that a rotation breaks.
 
 `.env` is gitignored. `.env.example` is the only environment file in the
 repository and contains no real values.
 
 ## Running against a live account for the first time
 
-Set `AGON_READ_ONLY=1` in the environment and leave it there while you read a
+Set `MOOT_READ_ONLY=1` in the environment and leave it there while you read a
 week of plans. Then start with the narrowest useful envelope — `ad.pause` and
 `campaign.budget_decrease`, the actions whose worst case is spending less money
 — and widen it only once the audit log contains a week of moves you agree with.

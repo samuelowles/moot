@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- Renamed the project from `agon` to `moot` — Old English *gemōt*, the
+  deliberative assembly; "moot" as in *open to argument*. The package, CLI,
+  plugin namespace (`/moot:plan`) and kill switch (`MOOT_READ_ONLY`) all
+  follow. The old `AGON_READ_ONLY` spelling is not honoured — this is
+  pre-1.0.
+
 ### Added
 - Three-stage ladder (Proving Ground / Scale / Reserve) with six transitions.
 - Target-derived gate set — every performance threshold is a ratio of a single
@@ -19,7 +26,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Adversarial council: five opposed archetypes plus an adjudicator, with two
   vetoes enforced in code (ADR-0005).
 - Live Meta Graph API adapter and an offline fixture adapter.
-- Write safety layer: dry-run default, `AGON_READ_ONLY` kill switch,
+- Write safety layer: dry-run default, `MOOT_READ_ONLY` kill switch,
   server-side validation, envelope enforcement, budget clamp, append-only
   audit, post-write verification, no delete verb (ADR-0002).
 - Claude Code plugin: six agents, two skills, three commands, two pre-dispatch
@@ -67,7 +74,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Audit log redacts token-shaped strings, as the docs already claimed.
 - Status and budget writes get a real read-back with a `failed-verify` outcome;
   a post-ID mismatch propagates instead of only logging.
-- `AGON_READ_ONLY` accepts the obvious truthy spellings, not just `1`.
+- `MOOT_READ_ONLY` accepts the obvious truthy spellings, not just `1`.
 - Within-run idempotency: two ads sharing a post ID no longer produce duplicate
   ads and duplicate cohort ad sets in a single run.
 - Kill limb D no longer synthesises zeros — a concept whose carts are *absent*

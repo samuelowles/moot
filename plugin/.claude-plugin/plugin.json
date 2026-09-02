@@ -1,9 +1,9 @@
 {
-  "name": "agon",
+  "name": "moot",
   "version": "0.1.0",
   "description": "Adversarial multi-agent autopilot for paid social accounts. Five agents with opposed mandates argue every contested move, an adjudicator rules, and target-derived gates move ads through a three-stage ladder.",
   "author": {
-    "name": "Agon contributors"
+    "name": "Moot contributors"
   },
   "license": "MIT",
   "keywords": [

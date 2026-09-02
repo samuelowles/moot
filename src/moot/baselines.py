@@ -13,8 +13,8 @@ from dataclasses import dataclass, field
 from math import ceil
 from typing import Any, Iterable, Optional
 
-from agon.config import Config, MarketConfig
-from agon.models import AdSet, Metrics, Stage
+from moot.config import Config, MarketConfig
+from moot.models import AdSet, Metrics, Stage
 
 logger = logging.getLogger(__name__)
 

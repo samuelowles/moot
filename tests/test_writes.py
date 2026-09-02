@@ -9,12 +9,12 @@ from dataclasses import replace
 import pytest
 from conftest import FIXTURES
 
-from agon.adapters.base import AdapterError, PostIdMismatchError
-from agon.adapters.fixture import FixtureAdapter
-from agon.config import EnvelopeConfig
-from agon.guards import GuardVerdict
-from agon.models import Action
-from agon.writes import (
+from moot.adapters.base import AdapterError, PostIdMismatchError
+from moot.adapters.fixture import FixtureAdapter
+from moot.config import EnvelopeConfig
+from moot.guards import GuardVerdict
+from moot.models import Action
+from moot.writes import (
     ALLOWED_VERBS,
     BUDGET_INCREASE_HARD_CAP_PCT,
     DISPATCHED,
@@ -68,8 +68,8 @@ class TestDryRunDefault:
 
 class TestReadOnlyEnv:
     def test_read_only_forces_propose_only_over_confirm_write(self, config, monkeypatch):
-        """AGON_READ_ONLY=1 beats --confirm-write: nothing dispatches."""
-        monkeypatch.setenv("AGON_READ_ONLY", "1")
+        """MOOT_READ_ONLY=1 beats --confirm-write: nothing dispatches."""
+        monkeypatch.setenv("MOOT_READ_ONLY", "1")
         adapter = FixtureAdapter(FIXTURES)
         result = dispatch(
             [Action(verb="ad.pause", target_id="ad_kill_a")], adapter, config, ALLOWED,
@@ -80,9 +80,9 @@ class TestReadOnlyEnv:
         assert result.dispatched_count == 0
 
     def test_read_only_env_parsed(self, monkeypatch):
-        monkeypatch.setenv("AGON_READ_ONLY", "1")
+        monkeypatch.setenv("MOOT_READ_ONLY", "1")
         assert read_only_env() is True
-        monkeypatch.setenv("AGON_READ_ONLY", "")
+        monkeypatch.setenv("MOOT_READ_ONLY", "")
         assert read_only_env() is False
 
 
@@ -180,7 +180,7 @@ class TestAudit:
         assert entry["confirm_write"] is False
 
     def test_audit_records_every_action_including_skips(self, config, tmp_path, monkeypatch):
-        monkeypatch.setenv("AGON_READ_ONLY", "1")
+        monkeypatch.setenv("MOOT_READ_ONLY", "1")
         audit = tmp_path / "audit.jsonl"
         actions = [
             Action(verb="ad.pause", target_id="a1"),
@@ -569,7 +569,7 @@ class TestAuditRedaction:
         assert entry["params"]["url"].startswith("https://graph.facebook.com/?")
 
     def test_redaction_is_recursive(self):
-        from agon.writes import _redact
+        from moot.writes import _redact
 
         record = {
             "a": ["x", "EAA" + "z" * 25],
@@ -587,15 +587,15 @@ class TestReadOnlyVariants:
     @pytest.mark.parametrize("value", ["1", "true", "TRUE", "Yes", "yes", "y", "Y",
                                        "on", "ON", "enabled", "T"])
     def test_truthy_spellings_are_on(self, monkeypatch, value):
-        monkeypatch.setenv("AGON_READ_ONLY", value)
+        monkeypatch.setenv("MOOT_READ_ONLY", value)
         assert read_only_env() is True
 
     @pytest.mark.parametrize("value", ["0", "false", "FALSE", "no", "No", "off",
                                        "OFF", "", "  "])
     def test_off_words_are_off(self, monkeypatch, value):
-        monkeypatch.setenv("AGON_READ_ONLY", value)
+        monkeypatch.setenv("MOOT_READ_ONLY", value)
         assert read_only_env() is False
 
     def test_unset_is_off(self, monkeypatch):
-        monkeypatch.delenv("AGON_READ_ONLY", raising=False)
+        monkeypatch.delenv("MOOT_READ_ONLY", raising=False)
         assert read_only_env() is False

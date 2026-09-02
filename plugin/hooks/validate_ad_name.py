@@ -12,10 +12,10 @@ lives.
 
 Scope and its limits
 --------------------
-This hook fires on interactive `agon` invocations in a Claude Code session. It
+This hook fires on interactive `moot` invocations in a Claude Code session. It
 does **not** fire on headless scheduled runs, which never pass through a
 PreToolUse hook at all. The same two checks are therefore implemented
-in-process in `src/agon/writes.py`, and the two implementations must be kept in
+in-process in `src/moot/writes.py`, and the two implementations must be kept in
 sync. If you change the pattern here, change it there.
 
 Treat the in-process check as the guarantee and this hook as the fast feedback.
@@ -42,7 +42,7 @@ DEFAULT_PATTERN = r"^[A-Z]{2,6}-[0-9]{8}-(VID|SVID|CAR|IMG)-[A-Z0-9-]{2,12}-[A-Z
 DEFAULT_FORBIDDEN = ("/collections/",)
 
 # Only creation carries a name and a destination worth checking.
-CREATES_AD = re.compile(r"\bagon\s+(apply|duplicate)\b")
+CREATES_AD = re.compile(r"\bmoot\s+(apply|duplicate)\b")
 NAME_FLAG = re.compile(r"--name[= ]\"?([^\"\s]+)")
 URL_FLAG = re.compile(r"--(?:url|destination|website-url)[= ]\"?([^\"\s]+)")
 CONFIG_FLAG = re.compile(r"--config[= ]\"?([^\"\s]+)")

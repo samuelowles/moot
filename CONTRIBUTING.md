@@ -22,7 +22,7 @@ credentials, and a test that requires either will not be merged.
 ## Changing a gate
 
 The gates are specified in [`docs/gates.md`](docs/gates.md) and implemented in
-`src/agon/gates/`. A gate change is three edits, and all three are required:
+`src/moot/gates/`. A gate change is three edits, and all three are required:
 
 1. **`docs/gates.md`** — the arithmetic, with the reasoning.
 2. **The implementation**, citing the section it implements.
@@ -39,12 +39,12 @@ data, not from taste.
 
 ## Changing the write path
 
-`src/agon/writes.py` and `src/agon/guards.py` are load-bearing. Moving a check
+`src/moot/writes.py` and `src/moot/guards.py` are load-bearing. Moving a check
 out of either — into a prompt, a charter, or a caller's responsibility — is a
 security change even when it reads as a refactor. Say so in the PR description.
 
 Two rules that are not negotiable: **no delete verb** anywhere in the codebase,
-and **nothing may route around `AGON_READ_ONLY`**. Both are enforced by tests.
+and **nothing may route around `MOOT_READ_ONLY`**. Both are enforced by tests.
 
 ## Changing an agent charter
 

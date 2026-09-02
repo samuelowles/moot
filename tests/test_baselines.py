@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from agon.baselines import MarketBaseline, compute_baseline, compute_baselines
-from agon.models import AdSet, Metrics, Stage
+from moot.baselines import MarketBaseline, compute_baseline, compute_baselines
+from moot.models import AdSet, Metrics, Stage
 
 
 def adset(adset_id, market, stage, spend, value, carts, outbound=None):
@@ -131,7 +131,7 @@ class TestSeedOutranksFallback:
         import yaml
         from conftest import CONFIG_PATH
 
-        from agon.config import load_config
+        from moot.config import load_config
 
         payload = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
         payload["markets"]["US"]["baseline_fallback"] = 33.0

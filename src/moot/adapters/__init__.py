@@ -1,6 +1,6 @@
 """Platform adapters: the fixture backend tests run on, and the live Meta one."""
 
-from agon.adapters.base import (
+from moot.adapters.base import (
     AdapterError,
     AdPlatformAdapter,
     EntitySnapshot,

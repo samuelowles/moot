@@ -27,10 +27,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from agon.adapters.base import AdPlatformAdapter, EntityType, PostIdMismatchError
-from agon.config import Config
-from agon.guards import GuardVerdict
-from agon.models import Action, Ad
+from moot.adapters.base import AdPlatformAdapter, EntityType, PostIdMismatchError
+from moot.config import Config
+from moot.guards import GuardVerdict
+from moot.models import Action, Ad
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 # the budget gate caps its proposals too, but the write layer does not trust it.
 BUDGET_INCREASE_HARD_CAP_PCT = 30.0
 
-ENV_READ_ONLY = "AGON_READ_ONLY"
+ENV_READ_ONLY = "MOOT_READ_ONLY"
 
 DISPATCHED = "dispatched"
 DRY_RUN = "dry-run"
@@ -121,7 +121,7 @@ class DispatchResult:
 
 
 def read_only_env() -> bool:
-    """``AGON_READ_ONLY`` forces propose-only regardless of any flag.
+    """``MOOT_READ_ONLY`` forces propose-only regardless of any flag.
 
     A kill switch must not be spelling- or case-fragile: any non-empty value
     is ON (``Yes``, ``y``, ``on``, ``TRUE``…) except the explicit OFF words
@@ -297,7 +297,7 @@ def _pre_execution_outcome(
 ) -> Optional[DispatchOutcome]:
     """Why this action does not execute, or None when it may.
 
-    The refusal ladder, strongest first: ``AGON_READ_ONLY`` beats
+    The refusal ladder, strongest first: ``MOOT_READ_ONLY`` beats
     ``confirm_write``; the guards beat everything but read-only; the envelope
     downgrades to a proposal rather than executing; a §6/§7 pause waits for
     the duplication it depends on to verify.
@@ -398,7 +398,7 @@ def dispatch(
     """Take the computed action set through the safety layer.
 
     Order of refusal, strongest first: only ALLOWED verbs may execute (no
-    delete verb ever); ``AGON_READ_ONLY`` beats ``confirm_write``; the guards
+    delete verb ever); ``MOOT_READ_ONLY`` beats ``confirm_write``; the guards
     beat everything but read-only; the envelope downgrades to a proposal
     rather than executing. A §6/§7 pause that depends on a Reserve copy only
     dispatches after that copy verified (``requires_verified_duplicate_of``).

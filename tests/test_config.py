@@ -8,8 +8,8 @@ import pytest
 import yaml
 from conftest import CONFIG_PATH
 
-from agon.config import ConfigError, load_config
-from agon.models import Stage
+from moot.config import ConfigError, load_config
+from moot.models import Stage
 
 
 @pytest.fixture(scope="module")

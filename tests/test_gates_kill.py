@@ -5,9 +5,9 @@ from __future__ import annotations
 import pytest
 from conftest import make_ad, make_ctx
 
-from agon.baselines import MarketBaseline
-from agon.gates.kill import KillGate
-from agon.models import CreativeType, Decision, Metrics
+from moot.baselines import MarketBaseline
+from moot.gates.kill import KillGate
+from moot.models import CreativeType, Decision, Metrics
 
 
 def kill(ad, ctx):
@@ -124,7 +124,7 @@ class TestLimbC2:
         assert kill(ad, make_ctx(config)) == []  # return 10 ≥ floor
 
     def test_scale_floor_is_higher(self, config):
-        from agon.models import Stage
+        from moot.models import Stage
 
         ad = make_ad(
             "c2s", stage=Stage.SCALE, campaign_id="120000000000004", age_days=10,

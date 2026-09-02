@@ -102,7 +102,7 @@ def test_propose_only_template_never_authorises_writes(plugin_root: Path) -> Non
     assert "--confirm-write" not in text, (
         "the propose-only template must not instruct a confirmed write dispatch"
     )
-    assert "agon apply" not in text, (
+    assert "moot apply" not in text, (
         "the propose-only template must not instruct the write command at all"
     )
 

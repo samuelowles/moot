@@ -18,7 +18,7 @@ from typing import Any, Optional
 
 import yaml
 
-from agon.models import Stage
+from moot.models import Stage
 
 logger = logging.getLogger(__name__)
 
@@ -310,7 +310,7 @@ def _parse_account(raw: dict[str, Any]) -> AccountConfig:
     ids = raw.get("allowed_account_ids") or []
     if not isinstance(ids, (list, tuple)) or not ids:
         raise ConfigError(
-            "account.allowed_account_ids: must be a non-empty list — Agon refuses "
+            "account.allowed_account_ids: must be a non-empty list — Moot refuses "
             "to write to any account not explicitly listed"
         )
     if not all(isinstance(i, str) and i.strip() for i in ids):
@@ -418,7 +418,7 @@ def _warn_on_margin(config: Config) -> None:
             logger.warning(
                 "config: %s kill-floor ratio %.3f is inconsistent with "
                 "margin.gross_margin_pct=%.0f%% (implied ratio %.3f). Below that "
-                "margin these floors are too low and must rise. Agon does not "
+                "margin these floors are too low and must rise. Moot does not "
                 "silently correct them — fix target or margin (docs/gates.md §2).",
                 stage.value,
                 actual,
@@ -541,7 +541,7 @@ def load_config(path: str | Path) -> Config:
         forbidden=frozenset(str(v) for v in envelope_raw.get("forbidden", [])),
     )
 
-    # docs/writes.md §4: the pixel is set explicitly on every ad set Agon
+    # docs/writes.md §4: the pixel is set explicitly on every ad set Moot
     # creates — a named safety property. An empty pixel id would be posted
     # verbatim, so the config refuses to load without one.
     pixel = _require_mapping(raw.get("pixel", {}), "pixel")
@@ -549,7 +549,7 @@ def load_config(path: str | Path) -> Config:
     if not pixel_id:
         raise ConfigError(
             "pixel.id: must be a non-empty id (e.g. '400000000000001') — every "
-            "ad set Agon creates sets the pixel explicitly, and an empty one "
+            "ad set Moot creates sets the pixel explicitly, and an empty one "
             "silently optimises against the wrong event (docs/writes.md §4)"
         )
 

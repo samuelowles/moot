@@ -1,4 +1,4 @@
-# Agon
+# Moot
 
 **Adversarial multi-agent governance for paid social ad accounts.**
 
@@ -30,7 +30,7 @@ No credentials, no ad account, no network. The repo ships a demo account:
 
 ```bash
 pip install -e ".[dev]"
-agon plan --adapter fixture --fixtures tests/fixtures --config examples/config.example.yaml
+moot plan --adapter fixture --fixtures tests/fixtures --config examples/config.example.yaml
 ```
 
 A slice of what prints:
@@ -63,10 +63,10 @@ _A fallback or seeded baseline in play is how gates rot — every market states 
 - suppressed by precedence: **FATIGUE** (§12; recorded so the losing decision stays visible)
 ```
 
-Then `agon debate` prints the Round 0 briefs for the contested set — on this
+Then `moot debate` prints the Round 0 briefs for the contested set — on this
 demo account, a demotion and both budget moves; the open-and-shut kills argue
 themselves. Nothing writes without `--confirm-write`, and
-[`AGON_READ_ONLY=1`](docs/writes.md) overrides even that.
+[`MOOT_READ_ONLY=1`](docs/writes.md) overrides even that.
 
 > **New to media buying?** [`docs/gates.md` §1](docs/gates.md#1-vocabulary)
 > defines every term (return, cost per cart, hook rate, baseline) before it is
@@ -89,7 +89,7 @@ and API credentials, acting decisively on a partial data pull, is a genuinely
 bad idea. A single unpaginated page looks exactly like an account that suddenly
 stopped converting, and a confident system responds to that decisively.
 
-Agon's answer to the first is to execute. Its answer to the second is that an
+Moot's answer to the first is to execute. Its answer to the second is that an
 LLM being persuasive is never the last thing standing between a proposal and a
 live ad account.
 
@@ -189,11 +189,11 @@ Full arithmetic, every limb, and the reasoning:
 
 ## Safety
 
-Agon ships a **live write path**. It can pause ads, move budget, and create ads
+Moot ships a **live write path**. It can pause ads, move budget, and create ads
 in an account that spends real money. Ten layered mechanisms, each assuming the
 ones above it have failed:
 
-dry-run by default · `AGON_READ_ONLY=1` overrides everything, checked inside the
+dry-run by default · `MOOT_READ_ONLY=1` overrides everything, checked inside the
 dispatch function · server-side `validate_only` before every write · everything
 born paused · the envelope enforced in code, with out-of-envelope actions
 **downgraded to proposals rather than dropped** · account allowlist in the
@@ -218,29 +218,29 @@ One trap worth stating on the front page: **a headless run cannot read this
 repository.** Everything it knows is in the prompt captured when the task was
 created. Editing `docs/gates.md` changes nothing until the prompt is
 regenerated — so `gates_version` is stamped into every generated prompt and
-`/agon:schedule status` reports drift. See
+`/moot:schedule status` reports drift. See
 [`docs/scheduling.md`](docs/scheduling.md).
 
 ## As a Claude Code plugin
 
 ```
 /plugin marketplace add <this repo>
-/plugin install agon
-/agon:plan account.yaml
-/agon:debate account.yaml
-/agon:schedule autopilot
+/plugin install moot
+/moot:plan account.yaml
+/moot:debate account.yaml
+/moot:schedule autopilot
 ```
 
 ## Layout
 
 ```
-src/agon/          runtime — gates, baselines, pipeline, guards, adapters, writes
+src/moot/          runtime — gates, baselines, pipeline, guards, adapters, writes
   gates/           one module per gate family, each citing its gates.md section
   adapters/        meta (live Graph API) · fixture (offline, what tests use)
 plugin/            Claude Code plugin
   agents/          the six charters
   skills/          account-framework · adversarial-review
-  commands/        /agon:plan · /agon:debate · /agon:schedule
+  commands/        /moot:plan · /moot:debate · /moot:schedule
   hooks/           pre-dispatch checks: naming, destination, plan-before-write
   scheduled-tasks/ daily review (propose-only) · autopilot (execute-in-envelope)
 docs/              framework · gates · agents · debate-protocol · scheduling · writes · adr/
@@ -276,7 +276,7 @@ engine, guards, pipeline and write layer are tested rather than asserted.
 
 ## Provenance
 
-Agon generalises a production system that ran a real direct-to-consumer ad
+Moot generalises a production system that ran a real direct-to-consumer ad
 account. The gate arithmetic, the ladder, the post-ID mechanics and the parsing
 traps are all extracted from that system — every trap in
 [`gates.md` §11](docs/gates.md#11-metric-parsing--the-traps) caused a wrong
@@ -294,8 +294,9 @@ each ratio came from so you can argue with it.
 
 ---
 
-*agon* (ἀγών) — the formal contest at the heart of Greek drama, in which two
-opposed positions argue until one prevails.
+*moot* — from Old English *gemōt*, a deliberative assembly; the sense that
+survives in "moot point" originally meant *open to argument*. The gates settle
+what is not; the council argues what is.
 
 Contributions: [`CONTRIBUTING.md`](CONTRIBUTING.md) · Security:
 [`SECURITY.md`](SECURITY.md) · MIT licensed.

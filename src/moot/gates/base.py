@@ -13,9 +13,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional
 
-from agon.baselines import MarketBaseline
-from agon.config import Config
-from agon.models import Ad, Decision, GateResult, Metrics, Stage
+from moot.baselines import MarketBaseline
+from moot.config import Config
+from moot.models import Ad, Decision, GateResult, Metrics, Stage
 
 
 @dataclass(frozen=True)

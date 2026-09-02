@@ -7,10 +7,10 @@ import pytest
 import yaml
 from conftest import CONFIG_PATH, FIXTURES, RUN_NOW
 
-from agon.adapters.fixture import FixtureAdapter
-from agon.config import load_config
-from agon.models import Decision
-from agon.pipeline import Pipeline
+from moot.adapters.fixture import FixtureAdapter
+from moot.config import load_config
+from moot.models import Decision
+from moot.pipeline import Pipeline
 
 
 @pytest.fixture()

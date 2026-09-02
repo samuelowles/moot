@@ -11,9 +11,9 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from agon.config import GraduateGates
-from agon.gates.base import GateContext, delivering
-from agon.models import Ad, CreativeType, Decision, GateResult, Stage
+from moot.config import GraduateGates
+from moot.gates.base import GateContext, delivering
+from moot.models import Ad, CreativeType, Decision, GateResult, Stage
 
 
 class GraduateGate:

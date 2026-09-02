@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from conftest import RUN_NOW
 
-from agon.council import (
+from moot.council import (
     ADJUDICATOR,
     AGENT_ROSTER,
     CONCENTRATION_THRESHOLD,
@@ -17,7 +17,7 @@ from agon.council import (
     hard_vetoes,
     post_concentration,
 )
-from agon.models import (
+from moot.models import (
     Action,
     Ad,
     CreativeType,
@@ -307,7 +307,7 @@ class TestConcentration:
 
 class TestBuildDebateContext:
     def test_builds_ad_context_from_run_state(self, config, adapter):
-        from agon.pipeline import Pipeline
+        from moot.pipeline import Pipeline
 
         run = Pipeline(adapter, config).run(now=RUN_NOW)
         action = next(
@@ -333,7 +333,7 @@ class TestBuildDebateContext:
         assert context.concentration == pytest.approx(1.0)
 
     def test_builds_campaign_context_from_run_state(self, config, adapter):
-        from agon.pipeline import Pipeline
+        from moot.pipeline import Pipeline
 
         run = Pipeline(adapter, config).run(now=RUN_NOW)
         action = next(
@@ -356,7 +356,7 @@ class TestBuildDebateContext:
         """The §1 row of the contested table — any action on a concentrated
         post — must actually fire: the pipeline stamps revenue_share into the
         action evidence from the same computation."""
-        from agon.pipeline import Pipeline
+        from moot.pipeline import Pipeline
 
         run = Pipeline(adapter, config).run(now=RUN_NOW)
         contested_actions = contested(run.actions + run.proposals)

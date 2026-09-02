@@ -1,5 +1,5 @@
 ---
-name: agon-daily-review
+name: moot-daily-review
 description: Scheduled daily account review that proposes and never writes. Template for a Claude Code scheduled task — interpolate the account values, then create the task from the rendered prompt.
 type: scheduled-task-template
 authority: propose-only
@@ -13,7 +13,7 @@ The propose-only half of the pair. This is what you keep when autonomy is
 switched off — and the ADR-0002 revert condition does exactly that: the
 autopilot keeps running and reporting, and stops writing.
 
-Render with `/agon:schedule review`. Placeholders: `{{ACCOUNT_NAME}}`,
+Render with `/moot:schedule review`. Placeholders: `{{ACCOUNT_NAME}}`,
 `{{CONFIG_PATH}}`, `{{TARGET}}`, `{{MARKETS}}`, `{{REPORT_SINK}}`,
 `{{TIMEZONE}}`.
 

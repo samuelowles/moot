@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Optional, Sequence
 
-from agon.models import Metrics
+from moot.models import Metrics
 
 # Action-type lookup orders (§11.3): the omni_ prefixed keys are the
 # cross-channel rollups Meta prefers; the bare keys are the fallbacks still

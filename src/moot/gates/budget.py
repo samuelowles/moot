@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from typing import Any, Union
 
-from agon.gates.base import GateContext
-from agon.models import AdSet, Campaign, Decision, GateResult, Metrics, Stage
+from moot.gates.base import GateContext
+from moot.models import AdSet, Campaign, Decision, GateResult, Metrics, Stage
 
 # §8: never exceed +30% in a single step — auction mechanics (a larger step
 # resets the learning phase), not governance. Hard cap in code.

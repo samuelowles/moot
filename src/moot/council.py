@@ -19,9 +19,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Sequence
 
-from agon.baselines import MarketBaseline
-from agon.config import Config, DestinationPolicy
-from agon.models import (
+from moot.baselines import MarketBaseline
+from moot.config import Config, DestinationPolicy
+from moot.models import (
     Action,
     Ad,
     AdSet,
@@ -727,7 +727,7 @@ def brief(action: Action, context: Optional[DebateContext] = None) -> str:
     adjudicate", §5), not a formatting detail.
     """
     lines = [
-        "# Agon debate brief — Round 0 (shared)",
+        "# Moot debate brief — Round 0 (shared)",
         "",
         "Every councillor receives exactly this brief: no agent gets a fact "
         "the others do not (docs/debate-protocol.md §2, Round 0).",

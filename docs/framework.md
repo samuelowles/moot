@@ -1,6 +1,6 @@
 # The Framework
 
-Agon governs a paid-social account as a **three-stage ladder** with a **single
+Moot governs a paid-social account as a **three-stage ladder** with a **single
 scaling lever** and a **target-derived gate set**. This document defines the
 model. [`gates.md`](gates.md) defines the arithmetic.
 
@@ -148,7 +148,7 @@ backed by a page post (`effective_object_story_id`, shaped `{page_id}_{post_id}`
 A new ad that *references that existing post* inherits the accumulated social
 proof and engagement ranking.
 
-Every promotion, retirement and market clone in Agon is therefore: read the
+Every promotion, retirement and market clone in Moot is therefore: read the
 source ad's post ID → create a creative from that post ID in the destination →
 create an ad from that creative, paused → verify the post ID survived → pause
 the source if the transition requires it.
@@ -204,7 +204,7 @@ usually too thin to read.
 
 ## 6. What the framework refuses to do
 
-Constraints are as much a part of the framework as the gates. Agon has no
+Constraints are as much a part of the framework as the gates. Moot has no
 delete verb anywhere in its codebase — retirement is always a pause, because
 the entity ID and its lifetime metrics are the audit anchor. It never edits the
 creative on a duplicated post, because edits reset learning and can detach the
@@ -225,7 +225,7 @@ every gate encodes a worldview and every worldview has a blind spot. A pure
 efficiency lens starves the testing engine; a pure creative lens spends forever
 on discovery; a pure growth lens buys revenue at declining margin.
 
-Agon's answer is not a better single strategist. It is five agents with
+Moot's answer is not a better single strategist. It is five agents with
 deliberately opposed mandates who argue the contested moves, and an adjudicator
 who must rule. See [`agents.md`](agents.md) and
 [`debate-protocol.md`](debate-protocol.md).

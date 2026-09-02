@@ -13,9 +13,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Optional
 
-from agon.adapters.base import AdPlatformAdapter
-from agon.config import Config, StageEntry
-from agon.models import Ad, AdSet, Stage
+from moot.adapters.base import AdPlatformAdapter
+from moot.config import Config, StageEntry
+from moot.models import Ad, AdSet, Stage
 
 OK = "ok"
 ALREADY_PRESENT = "already-present"

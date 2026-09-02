@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from agon.models import (
+from moot.models import (
     Action,
     Ad,
     CreativeType,

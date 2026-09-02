@@ -12,9 +12,9 @@ from __future__ import annotations
 import json
 from typing import Any, Optional
 
-from agon.models import Action, Decision
-from agon.pipeline import RunResult
-from agon.writes import DispatchResult
+from moot.models import Action, Decision
+from moot.pipeline import RunResult
+from moot.writes import DispatchResult
 
 NONE_THIS_RUN = "None this run"
 
@@ -250,7 +250,7 @@ def render_report(
     previous: Optional[dict[str, Any]] = None,
 ) -> str:
     """The full run report as markdown."""
-    parts = ["# Agon run report", ""]
+    parts = ["# Moot run report", ""]
     if result.guard.urgent:
         parts.append("> ⚠ **URGENT** — a guard or circuit breaker tripped; "
                      "no writes this run.")

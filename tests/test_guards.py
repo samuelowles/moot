@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 from conftest import fixture_adapter
 
-from agon.guards import RunSnapshot, evaluate_guards
-from agon.models import Action
+from moot.guards import RunSnapshot, evaluate_guards
+from moot.models import Action
 
 
 def pause(ad_id="a1"):
@@ -86,7 +86,7 @@ class TestCircuitBreakers:
 
 class TestPipelineWiring:
     def test_incomplete_fixture_run_blocks_writes(self, config):
-        from agon.pipeline import Pipeline
+        from moot.pipeline import Pipeline
 
         result = Pipeline(fixture_adapter("incomplete"), config).run()
         assert result.guard.writes_allowed is False

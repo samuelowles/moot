@@ -8,9 +8,9 @@ import pytest
 from click.testing import CliRunner
 from conftest import CONFIG_PATH, FIXTURES
 
-from agon.adapters.fixture import FixtureAdapter
-from agon.cli import main
-from agon.report import NONE_THIS_RUN, render_report
+from moot.adapters.fixture import FixtureAdapter
+from moot.cli import main
+from moot.report import NONE_THIS_RUN, render_report
 
 ARGS = ["--config", str(CONFIG_PATH), "--adapter", "fixture", "--fixtures", str(FIXTURES)]
 
@@ -32,7 +32,7 @@ def fresh_adapter(monkeypatch):
             super().__init__(path)
             created["instance"] = self
 
-    import agon.cli as cli_module
+    import moot.cli as cli_module
 
     monkeypatch.setattr(cli_module, "FixtureAdapter", Spy)
     return created
@@ -43,7 +43,7 @@ class TestPlan:
         monkeypatch.chdir(tmp_path)  # keep the audit log out of the repo
         result = runner.invoke(main, [*ARGS, "plan"])
         assert result.exit_code == 0, result.output
-        assert "# Agon run report" in result.output
+        assert "# Moot run report" in result.output
         assert "## Live daily spend by stage" in result.output
         # Plan writes nothing.
         assert fresh_adapter["instance"].writes == []
@@ -78,10 +78,10 @@ class TestApply:
     def test_read_only_env_beats_confirm_write(self, runner, fresh_adapter, tmp_path,
                                                monkeypatch):
         monkeypatch.chdir(tmp_path)
-        monkeypatch.setenv("AGON_READ_ONLY", "1")
+        monkeypatch.setenv("MOOT_READ_ONLY", "1")
         result = runner.invoke(main, [*ARGS, "--confirm-write", "apply"])
         assert result.exit_code == 0
-        assert "AGON_READ_ONLY" in result.output
+        assert "MOOT_READ_ONLY" in result.output
         assert fresh_adapter["instance"].writes == []
 
     def test_audit_writes_jsonl_even_on_dry_runs(self, runner, tmp_path, monkeypatch):
@@ -161,8 +161,8 @@ class TestOtherCommands:
 
 class TestReport:
     def test_empty_sections_say_none_this_run(self, config):
-        from agon.guards import GuardVerdict
-        from agon.pipeline import RunResult
+        from moot.guards import GuardVerdict
+        from moot.pipeline import RunResult
 
         empty = RunResult(
             config=config,
@@ -189,7 +189,7 @@ class TestReport:
         assert spend_at < actions_at
 
     def test_delta_since_previous_run(self, config, adapter):
-        from agon.pipeline import Pipeline
+        from moot.pipeline import Pipeline
 
         run = Pipeline(adapter, config).run()
         previous = {"daily_spend": {k: v * 0.5 for k, v in run.daily_spend.items()}}
@@ -223,7 +223,7 @@ class TestDocumentedInvocations:
     )
     def test_writes_md_section5_commands_run(self, runner, tmp_path, monkeypatch, argv):
         monkeypatch.chdir(self._demo_dir(tmp_path))
-        monkeypatch.delenv("AGON_READ_ONLY", raising=False)
+        monkeypatch.delenv("MOOT_READ_ONLY", raising=False)
         result = runner.invoke(main, argv)
         assert result.exit_code == 0, result.output
 
@@ -235,13 +235,13 @@ class TestDocumentedInvocations:
              "--config", "examples/config.example.yaml"],
         )
         assert result.exit_code == 0, result.output
-        assert "# Agon run report" in result.output
+        assert "# Moot run report" in result.output
 
     def test_readme_quickstart_readonly_commands(self, runner, tmp_path, monkeypatch):
         """audit/plan/debate exactly as the README prints them, with the
         read-only belt on."""
         monkeypatch.chdir(self._demo_dir(tmp_path))
-        monkeypatch.setenv("AGON_READ_ONLY", "1")
+        monkeypatch.setenv("MOOT_READ_ONLY", "1")
         for command in ("audit", "plan", "debate"):
             result = runner.invoke(main, [command, "--config", "account.yaml"])
             assert result.exit_code == 0, (command, result.output)
@@ -283,14 +283,14 @@ class TestAdapterConstruction:
     it rather than silently ignoring the operator's API pinning."""
 
     def test_graph_version_env_wired_through(self, monkeypatch, config):
-        import agon.cli as cli_module
+        import moot.cli as cli_module
 
         monkeypatch.setenv("META_GRAPH_VERSION", "v21.0")
         adapter = cli_module._build_adapter(True, None, config)
         assert adapter.graph_version == "v21.0"
 
     def test_graph_version_defaults_when_unset(self, monkeypatch, config):
-        import agon.cli as cli_module
+        import moot.cli as cli_module
 
         monkeypatch.delenv("META_GRAPH_VERSION", raising=False)
         adapter = cli_module._build_adapter(True, None, config)
@@ -320,7 +320,7 @@ class TestDeltaOrdering:
         Rewrite that header's spend and the next report must show the shift;
         reading it after dispatch would compare the run against itself."""
         monkeypatch.chdir(tmp_path)
-        monkeypatch.delenv("AGON_READ_ONLY", raising=False)
+        monkeypatch.delenv("MOOT_READ_ONLY", raising=False)
         first = runner.invoke(main, [*ARGS, "apply"])
         assert first.exit_code == 0, first.output
         audit = tmp_path / "reports" / "write-audit.jsonl"
@@ -342,8 +342,8 @@ class TestReportFixes:
         the enriched ads or the whole live-adapter scorecard prints UNMAPPED."""
         from dataclasses import replace
 
-        from agon.guards import GuardVerdict
-        from agon.pipeline import Pipeline, RunResult
+        from moot.guards import GuardVerdict
+        from moot.pipeline import Pipeline, RunResult
 
         run = Pipeline(adapter, config).run()
         raw = replace(run.snapshot, ads=[replace(a, stage=None) for a in run.snapshot.ads])
@@ -360,8 +360,8 @@ class TestReportFixes:
         assert "PROVING" in text
 
     def test_downgraded_actions_printed_under_proposals(self, config, adapter):
-        from agon.guards import GuardVerdict
-        from agon.pipeline import Pipeline, RunResult
+        from moot.guards import GuardVerdict
+        from moot.pipeline import Pipeline, RunResult
 
         run = Pipeline(adapter, config).run()
         downgraded = [a.as_proposal("proposed only (§5 Path B ceiling)")
@@ -381,7 +381,7 @@ class TestReportFixes:
         assert downgraded[0].verb in proposals_section
 
     def test_derived_floats_rounded_to_two_decimals(self, config, adapter):
-        from agon.pipeline import Pipeline
+        from moot.pipeline import Pipeline
 
         run = Pipeline(adapter, config).run()
         text = render_report(run)

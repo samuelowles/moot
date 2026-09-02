@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from agon.metrics import (
+from moot.metrics import (
     extract_action,
     extract_action_value,
     parse_insights_row,

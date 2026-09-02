@@ -1,13 +1,13 @@
-"""The `agon` command line — audit, plan, apply, baseline, verify, debate.
+"""The `moot` command line — audit, plan, apply, baseline, verify, debate.
 
 Read-only by construction: `plan` computes and prints but writes nothing;
 `apply` without ``--confirm-write`` prints the plan and exits 0 having
-dispatched nothing; ``AGON_READ_ONLY=1`` overrides every flag.
+dispatched nothing; ``MOOT_READ_ONLY=1`` overrides every flag.
 
 The connection options (``--config``, ``--adapter``, ``--fixtures``,
 ``--confirm-write``) are accepted at BOTH group and subcommand level — the
 invocations printed in docs/writes.md §5 and the README quickstart put them
-after the subcommand (``agon apply --config account.yaml --confirm-write``),
+after the subcommand (``moot apply --config account.yaml --confirm-write``),
 and a subcommand value wins when both levels supply one.
 """
 
@@ -22,20 +22,20 @@ from typing import Optional
 
 import click
 
-from agon.adapters.base import EntitySnapshot
-from agon.adapters.fixture import FixtureAdapter
-from agon.baselines import compute_baselines
-from agon.config import Config, ConfigError, load_config
-from agon.council import (
+from moot.adapters.base import EntitySnapshot
+from moot.adapters.fixture import FixtureAdapter
+from moot.baselines import compute_baselines
+from moot.config import Config, ConfigError, load_config
+from moot.council import (
     AGENT_ROSTER,
     brief,
     build_debate_context,
     charter_block,
     contested,
 )
-from agon.pipeline import Pipeline, RunResult
-from agon.report import render_report
-from agon.writes import dispatch, previous_run_state, read_only_env
+from moot.pipeline import Pipeline, RunResult
+from moot.report import render_report
+from moot.writes import dispatch, previous_run_state, read_only_env
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +72,7 @@ def _build_adapter(meta: bool, fixtures: str | None, config: Config):
                 )
         return FixtureAdapter(fixtures)
     # Imported lazily so fixture-only environments never import requests paths.
-    from agon.adapters.meta import DEFAULT_GRAPH_VERSION, MetaAdapter
+    from moot.adapters.meta import DEFAULT_GRAPH_VERSION, MetaAdapter
 
     graph_version = os.environ.get(ENV_GRAPH_VERSION) or DEFAULT_GRAPH_VERSION
     return MetaAdapter(
@@ -98,7 +98,7 @@ def main(
     fixtures: str | None,
     dry_run: bool,
 ) -> None:
-    """Agon — adversarial autopilot for Meta Ads accounts."""
+    """Moot — adversarial autopilot for Meta Ads accounts."""
     _force_utf8_stdio()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     try:
@@ -211,7 +211,7 @@ def plan(
     click.echo(render_report(result, dispatch=None, previous=previous))
     click.echo("")
     click.echo(
-        "plan only — nothing dispatched. Use `agon apply --confirm-write` to dispatch."
+        "plan only — nothing dispatched. Use `moot apply --confirm-write` to dispatch."
     )
 
 
@@ -260,7 +260,7 @@ def apply(
         return
     if read_only_env():
         click.echo("")
-        click.echo("AGON_READ_ONLY is set — propose-only regardless of --confirm-write.")
+        click.echo("MOOT_READ_ONLY is set — propose-only regardless of --confirm-write.")
         return
     if dispatch_result.dispatched_count:
         click.echo("")
@@ -366,4 +366,4 @@ def debate(
 
 
 if __name__ == "__main__":
-    main(prog_name="agon")
+    main(prog_name="moot")

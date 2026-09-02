@@ -1,6 +1,6 @@
 ---
 name: account-framework
-description: The Agon account framework — a three-stage ladder (Proving Ground, Scale, Reserve), post-ID movement, and target-derived gates. Use when structuring or restructuring a paid-social account, deciding whether an ad should graduate, retire or be killed, diagnosing whether a decline is creative fatigue or an auction shift, or when asked how the pipeline works.
+description: The Moot account framework — a three-stage ladder (Proving Ground, Scale, Reserve), post-ID movement, and target-derived gates. Use when structuring or restructuring a paid-social account, deciding whether an ad should graduate, retire or be killed, diagnosing whether a decline is creative fatigue or an auction shift, or when asked how the pipeline works.
 ---
 
 # The Account Framework
@@ -76,8 +76,8 @@ relative ranking only — haircut it and say so.
 ## Commands
 
 ```bash
-agon audit    # read-only snapshot + baselines
-agon plan     # compute actions, print report, write nothing
-agon debate   # print the contested-action briefs
-agon apply --confirm-write    # dispatch inside the envelope
+moot audit    # read-only snapshot + baselines
+moot plan     # compute actions, print report, write nothing
+moot debate   # print the contested-action briefs
+moot apply --confirm-write    # dispatch inside the envelope
 ```

@@ -12,15 +12,15 @@ import json
 import pytest
 from conftest import FIXTURES, RUN_NOW
 
-from agon.adapters.base import (
+from moot.adapters.base import (
     AdPlatformAdapter,
     IncompletePullError,
     WriteRefusedError,
 )
-from agon.adapters.fixture import FixtureAdapter
-from agon.adapters.meta import MAX_PAGES, MetaAdapter
-from agon.pipeline import Pipeline
-from agon.report import render_report
+from moot.adapters.fixture import FixtureAdapter
+from moot.adapters.meta import MAX_PAGES, MetaAdapter
+from moot.pipeline import Pipeline
+from moot.report import render_report
 
 ACCOUNT = "act_100000000000001"
 
@@ -124,7 +124,7 @@ class TestInsightsFailure:
         assert result.guard.writes_allowed is False
         assert result.guard.urgent is True
         report = render_report(result)
-        assert "# Agon run report" in report
+        assert "# Moot run report" in report
         assert "URGENT" in report
 
     def test_healthy_pull_completes(self):
@@ -323,14 +323,14 @@ class TestGetters:
 
 
 class TestBudgetCurrencyUnits:
-    """Graph speaks minor units (cents); Agon speaks major units everywhere else.
+    """Graph speaks minor units (cents); Moot speaks major units everywhere else.
 
     Getting this boundary wrong is silent and expensive in both directions, so
     it is pinned from both sides. See MINOR_UNITS_PER_MAJOR in adapters/meta.py.
     """
 
     def test_read_converts_minor_to_major(self):
-        from agon.adapters.meta import _budget_to_major
+        from moot.adapters.meta import _budget_to_major
 
         assert _budget_to_major("10000") == 100.0   # $100.00 on the wire as cents
         assert _budget_to_major(13000) == 130.0
@@ -338,7 +338,7 @@ class TestBudgetCurrencyUnits:
         assert _budget_to_major("nonsense") is None
 
     def test_write_converts_major_to_minor_integer(self):
-        from agon.adapters.meta import _budget_to_minor
+        from moot.adapters.meta import _budget_to_minor
 
         # $130 must go out as 13000, not "130.00" — which Graph reads as $1.30
         # and which would quietly throttle the campaign to nothing.
@@ -348,7 +348,7 @@ class TestBudgetCurrencyUnits:
         assert isinstance(_budget_to_minor(130.0), int)
 
     def test_round_trip_is_stable(self):
-        from agon.adapters.meta import _budget_to_major, _budget_to_minor
+        from moot.adapters.meta import _budget_to_major, _budget_to_minor
 
         for major in (12.34, 100.0, 130.0, 1999.95):
             assert _budget_to_major(_budget_to_minor(major)) == major

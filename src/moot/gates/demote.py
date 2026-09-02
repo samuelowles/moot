@@ -10,8 +10,8 @@ other; the pipeline applies it before a DEMOTE survives.
 
 from __future__ import annotations
 
-from agon.gates.base import GateContext, delivering
-from agon.models import Ad, Decision, GateResult, Stage
+from moot.gates.base import GateContext, delivering
+from moot.models import Ad, Decision, GateResult, Stage
 
 
 class DemoteGate:

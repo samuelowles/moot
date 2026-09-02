@@ -9,8 +9,8 @@ against its own trailing baseline goes on the watchlist, not to the Reserve
 
 from __future__ import annotations
 
-from agon.gates.base import GateContext, delivering
-from agon.models import Ad, Decision, GateResult, Stage
+from moot.gates.base import GateContext, delivering
+from moot.models import Ad, Decision, GateResult, Stage
 
 
 def _conditions(ad: Ad, ctx: GateContext) -> tuple[list[str], dict]:

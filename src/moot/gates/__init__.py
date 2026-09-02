@@ -5,12 +5,12 @@ between their results is resolved by the pipeline per §12, never inside a
 gate.
 """
 
-from agon.gates.base import GateContext, auction_check
-from agon.gates.budget import BUDGET_STEP_HARD_CAP_PCT, BudgetGate, clamp_step_pct
-from agon.gates.demote import DemoteGate
-from agon.gates.fatigue import FatigueGate, WatchGate
-from agon.gates.graduate import GraduateGate
-from agon.gates.kill import KillGate
+from moot.gates.base import GateContext, auction_check
+from moot.gates.budget import BUDGET_STEP_HARD_CAP_PCT, BudgetGate, clamp_step_pct
+from moot.gates.demote import DemoteGate
+from moot.gates.fatigue import FatigueGate, WatchGate
+from moot.gates.graduate import GraduateGate
+from moot.gates.kill import KillGate
 
 __all__ = [
     "BUDGET_STEP_HARD_CAP_PCT",

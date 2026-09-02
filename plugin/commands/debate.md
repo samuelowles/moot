@@ -10,7 +10,7 @@ Run a full council round on the contested actions for the account at
 Load the `adversarial-review` skill and follow it exactly. In short:
 
 ```bash
-agon debate --config ${1:-account.yaml}
+moot debate --config ${1:-account.yaml}
 ```
 
 If that prints no contested actions, say so and stop. A manufactured debate is

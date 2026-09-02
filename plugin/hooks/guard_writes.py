@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""PreToolUse hook: refuse an interactive `agon apply --confirm-write` that has
+"""PreToolUse hook: refuse an interactive `moot apply --confirm-write` that has
 not been preceded by a plan in the same session.
 
 Why this exists
 ---------------
-The Python layer already enforces dry-run-by-default, the AGON_READ_ONLY kill
+The Python layer already enforces dry-run-by-default, the MOOT_READ_ONLY kill
 switch, the authorization envelope and the +30% budget clamp (see
 docs/writes.md). Those are the real guarantees, and none of them depend on this
 hook.
@@ -31,10 +31,10 @@ import sys
 from collections import deque
 from pathlib import Path
 
-# A plan is considered "seen" when `agon plan` has run in this session. The
+# A plan is considered "seen" when `moot plan` has run in this session. The
 # transcript is the only session-scoped evidence available to a hook.
-PLAN_EVIDENCE = re.compile(r"\bagon\s+(plan|audit|debate)\b")
-CONFIRM_WRITE = re.compile(r"\bagon\s+apply\b(?=.*--confirm-write)")
+PLAN_EVIDENCE = re.compile(r"\bmoot\s+(plan|audit|debate)\b")
+CONFIRM_WRITE = re.compile(r"\bmoot\s+apply\b(?=.*--confirm-write)")
 
 
 def main() -> int:
@@ -60,20 +60,20 @@ def main() -> int:
         return 0
 
     sys.stderr.write(
-        "Blocked: `agon apply --confirm-write` dispatches live writes to a real "
+        "Blocked: `moot apply --confirm-write` dispatches live writes to a real "
         "ad account, and no plan has been reviewed in this session.\n\n"
-        "Run `agon plan --config <config>` first and read the actions and their "
-        "gate evidence. If any action is contested, run `agon debate` before "
+        "Run `moot plan --config <config>` first and read the actions and their "
+        "gate evidence. If any action is contested, run `moot debate` before "
         "executing.\n\n"
         "To dispatch anyway, run the command in a session where the plan has "
-        "been reviewed, or set AGON_READ_ONLY=1 to confirm the pipeline is "
+        "been reviewed, or set MOOT_READ_ONLY=1 to confirm the pipeline is "
         "wired correctly without spending anything.\n"
     )
     return 2
 
 
 def _plan_seen(transcript_path: str | None) -> bool:
-    """True when this session has already run a read-only agon command."""
+    """True when this session has already run a read-only moot command."""
     if not transcript_path:
         return False
     path = Path(transcript_path)

@@ -1,6 +1,6 @@
 # The Write Path
 
-Agon ships a **live write path**. It can pause ads, move budget, and create ads
+Moot ships a **live write path**. It can pause ads, move budget, and create ads
 in a real account that spends real money. This document is the safety model.
 
 If you read one section, read §2.
@@ -20,7 +20,7 @@ winners stuck in discovery, a retirement stage running dark at 5.8× while
 budget sat in stages returning under 1×. The proposals were right. Nothing
 happened.
 
-So Agon executes. The entire question is what stops it executing something
+So Moot executes. The entire question is what stops it executing something
 stupid.
 
 ---
@@ -33,7 +33,7 @@ No single one of these is trusted. Each assumes the ones above it have failed.
 exits. `--confirm-write` is the only thing that dispatches, and it is never
 implied by another flag.
 
-**2. `AGON_READ_ONLY=1` overrides everything.** One environment variable forces
+**2. `MOOT_READ_ONLY=1` overrides everything.** One environment variable forces
 propose-only regardless of flags, config or arguments. It is checked inside the
 dispatch function, not at the CLI boundary, so no code path routes around it.
 This is the kill switch — set it in the shared environment while you
@@ -112,10 +112,10 @@ that work: `ads_management`, `ads_read`, and `pages_read_engagement` for post-ID
 extraction. A personal user token expires on a 60-day clock and will strand an
 unattended pipeline at the least convenient moment.
 
-Set `allowed_account_ids` to exactly the accounts Agon may touch. It is checked
+Set `allowed_account_ids` to exactly the accounts Moot may touch. It is checked
 in the adapter on every write.
 
-**The pixel is set explicitly on every ad set Agon creates.** Never rely on a
+**The pixel is set explicitly on every ad set Moot creates.** Never rely on a
 connector default. A mis-inherited pixel silently optimises against the wrong
 event, and the damage is invisible for weeks because delivery looks entirely
 normal.
@@ -125,10 +125,10 @@ normal.
 ## 5. Running it safely the first time
 
 ```bash
-export AGON_READ_ONLY=1                      # belt
-agon audit  --config account.yaml            # read-only: does the pull look right?
-agon plan   --config account.yaml            # what would it do, and on what evidence?
-agon debate --config account.yaml            # what is contested, and why?
+export MOOT_READ_ONLY=1                      # belt
+moot audit  --config account.yaml            # read-only: does the pull look right?
+moot plan   --config account.yaml            # what would it do, and on what evidence?
+moot debate --config account.yaml            # what is contested, and why?
 ```
 
 Read a week of plans before you unset the kill switch. You are checking three
@@ -139,9 +139,9 @@ set is roughly one action in five.
 Then, still deliberately:
 
 ```bash
-unset AGON_READ_ONLY
-agon apply --config account.yaml             # still a dry run — no --confirm-write
-agon apply --config account.yaml --confirm-write
+unset MOOT_READ_ONLY
+moot apply --config account.yaml             # still a dry run — no --confirm-write
+moot apply --config account.yaml --confirm-write
 ```
 
 Start with a narrow envelope. `ad.pause` and `campaign.budget_decrease` only —
@@ -153,5 +153,5 @@ log has a week of moves you agree with.
 ## 6. Reporting a security issue
 
 See [`../SECURITY.md`](../SECURITY.md). Anything that could cause an
-unauthorised write, route around `AGON_READ_ONLY`, or leak a token should be
+unauthorised write, route around `MOOT_READ_ONLY`, or leak a token should be
 reported privately rather than filed as a public issue.

@@ -1,6 +1,6 @@
 ---
 name: adjudicator
-description: Rules on contested actions after an Agon council round. Reads the transcript and the gate evidence, issues one ruling per action, names who lost, and states what would flip it. Use after opening positions and cross-examination are complete.
+description: Rules on contested actions after an Moot council round. Reads the transcript and the gate evidence, issues one ruling per action, names who lost, and states what would flip it. Use after opening positions and cross-examination are complete.
 tools: Read, Grep, Glob, Bash
 model: opus
 ---

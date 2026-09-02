@@ -13,8 +13,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from agon.config import Config
-from agon.models import Action
+from moot.config import Config
+from moot.models import Action
 
 # §10: unreported recent spend above this share of the KNOWN pipeline spend is
 # a data-quality trip — the anomaly guard is least likely to fire exactly when

@@ -1,7 +1,7 @@
 """Fixture adapter — reads JSON from a directory; writes are recorded, never
 dispatched.
 
-Tests (and `agon plan --adapter fixture`) run entirely against this backend:
+Tests (and `moot plan --adapter fixture`) run entirely against this backend:
 no network, no account. The fixture JSON passes through the same
 ``parse_insights_row`` traps as live Meta data, so a fixture row exercises
 exactly the parsing the runtime performs in production.
@@ -13,14 +13,14 @@ import json
 from pathlib import Path
 from typing import Any, Optional
 
-from agon.adapters.base import (
+from moot.adapters.base import (
     EntitySnapshot,
     EntityType,
     IncompletePullError,
     PostIdMismatchError,
 )
-from agon.metrics import parse_insights_row
-from agon.models import Ad, AdSet, Campaign, CreativeType, Metrics, Stage
+from moot.metrics import parse_insights_row
+from moot.models import Ad, AdSet, Campaign, CreativeType, Metrics, Stage
 
 # windows the fixture directory may describe, mapped to Metrics slots
 _WINDOWS = ("recent", "trailing", "lifetime")

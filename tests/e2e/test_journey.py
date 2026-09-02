@@ -46,14 +46,14 @@ def test_audit_reports_the_run(journey) -> None:
     result = journey("audit")
     assert result.returncode == 0, f"stderr={result.stderr!r}"
     assert result.stdout.strip(), "audit printed nothing"
-    assert "Agon run report" in result.stdout
+    assert "Moot run report" in result.stdout
 
 
 def test_plan_reports_baselines_without_writing(journey) -> None:
     result = journey("plan")
     assert result.returncode == 0, f"stderr={result.stderr!r}"
     assert result.stdout.strip(), "plan printed nothing"
-    assert "Agon run report" in result.stdout
+    assert "Moot run report" in result.stdout
     assert "## Baselines" in result.stdout
     assert "nothing dispatched" in result.stdout
 
@@ -98,7 +98,7 @@ def test_apply_without_confirm_write_dispatches_nothing(journey) -> None:
 
 
 def test_read_only_beats_confirm_write(journey) -> None:
-    result = journey("apply", "--confirm-write", env_extra={"AGON_READ_ONLY": "1"})
+    result = journey("apply", "--confirm-write", env_extra={"MOOT_READ_ONLY": "1"})
     assert result.returncode == 0, f"stderr={result.stderr!r}"
     assert "skipped-readonly" in result.stdout
     assert _DISPATCHED_COUNT.search(result.stdout) is None, (

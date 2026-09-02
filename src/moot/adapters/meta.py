@@ -18,7 +18,7 @@ from typing import Any, Optional
 
 import requests
 
-from agon.adapters.base import (
+from moot.adapters.base import (
     AdapterError,
     EntitySnapshot,
     EntityType,
@@ -26,8 +26,8 @@ from agon.adapters.base import (
     PostIdMismatchError,
     WriteRefusedError,
 )
-from agon.metrics import parse_insights_row
-from agon.models import Ad, AdSet, Campaign, CreativeType, Metrics
+from moot.metrics import parse_insights_row
+from moot.models import Ad, AdSet, Campaign, CreativeType, Metrics
 
 logger = logging.getLogger(__name__)
 
@@ -194,7 +194,7 @@ class MetaAdapter:
     def _check_account(self, act_id: str) -> None:
         if not self.allowed_account_ids:
             raise WriteRefusedError(
-                "no allowed account ids configured — Agon refuses every write"
+                "no allowed account ids configured — Moot refuses every write"
             )
         bare = _normalise_account_id(act_id)
         allowed = {a: _normalise_account_id(a) for a in self.allowed_account_ids}
@@ -535,7 +535,7 @@ class MetaAdapter:
         params: dict[str, Any] = {
             "name": name,
             "campaign_id": campaign_id,
-            # Config sets the pixel explicitly on every ad set Agon creates —
+            # Config sets the pixel explicitly on every ad set Moot creates —
             # never rely on a connector default (examples/config.example.yaml).
             "promoted_object": json.dumps(
                 {"pixel_id": pixel_id, "custom_event_type": "PURCHASE"}
@@ -609,7 +609,7 @@ def _as_float(value: Any) -> Optional[float]:
 
 
 # Graph both returns and accepts budget fields in the account's MINOR currency
-# unit — cents for a two-decimal currency. Agon works in major units everywhere
+# unit — cents for a two-decimal currency. Moot works in major units everywhere
 # else (the gates, the clamp, the report), so the conversion happens at this
 # adapter boundary and nowhere else.
 #

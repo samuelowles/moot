@@ -13,19 +13,19 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from agon.adapters.base import AdPlatformAdapter, EntitySnapshot
-from agon.baselines import MarketBaseline, compute_baselines
-from agon.config import Config
-from agon.council import hard_vetoes, post_concentration
-from agon.duplication import PreflightResult, preflight
-from agon.gates.base import GateContext, auction_check
-from agon.gates.budget import BudgetGate
-from agon.gates.demote import DemoteGate
-from agon.gates.fatigue import FatigueGate, WatchGate
-from agon.gates.graduate import GraduateGate
-from agon.gates.kill import KillGate
-from agon.guards import GuardVerdict, RunSnapshot, evaluate_guards
-from agon.models import (
+from moot.adapters.base import AdPlatformAdapter, EntitySnapshot
+from moot.baselines import MarketBaseline, compute_baselines
+from moot.config import Config
+from moot.council import hard_vetoes, post_concentration
+from moot.duplication import PreflightResult, preflight
+from moot.gates.base import GateContext, auction_check
+from moot.gates.budget import BudgetGate
+from moot.gates.demote import DemoteGate
+from moot.gates.fatigue import FatigueGate, WatchGate
+from moot.gates.graduate import GraduateGate
+from moot.gates.kill import KillGate
+from moot.guards import GuardVerdict, RunSnapshot, evaluate_guards
+from moot.models import (
     Action,
     Ad,
     AdSet,
@@ -34,7 +34,7 @@ from agon.models import (
     GateResult,
     Stage,
 )
-from agon.writes import BUDGET_INCREASE_HARD_CAP_PCT
+from moot.writes import BUDGET_INCREASE_HARD_CAP_PCT
 
 logger = logging.getLogger(__name__)
 
